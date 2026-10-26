@@ -1,8 +1,10 @@
-# 每次推送到 main，自動把 app/ 發布到 GitHub Pages（手機、平板、電腦都能用網址測試）
+# 推送到 main 或 dev 都會重新發布 GitHub Pages：
+#   main → https://cycymk.github.io/save-state-hourglass/        （正式版，孩子日常使用）
+#   dev  → https://cycymk.github.io/save-state-hourglass/beta/   （每週新版，家長先試玩）
 name: Deploy to GitHub Pages
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,9 +21,22 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
+      - uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: dev
+          path: dev
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -r main/app/. _site/
+          if [ -d dev/app ]; then mkdir -p _site/beta && cp -r dev/app/. _site/beta/; fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: app
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

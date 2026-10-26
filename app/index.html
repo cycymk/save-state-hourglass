@@ -127,7 +127,8 @@ label.f { display: block; margin: 10px 0 4px; font-weight: 700; font-size: .9em;
 <script>
 'use strict';
 /* ========== storage ========== */
-const KEY = 'starjar.v1';
+const IS_BETA = location.pathname.includes('/beta/');
+const KEY = 'starjar.v1' + (IS_BETA ? '.beta' : ''); // 試玩版資料與正式版分開，不會弄亂孩子的紀錄
 const uid = () => Math.random().toString(36).slice(2, 9);
 const pad = n => String(n).padStart(2, '0');
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -276,6 +277,7 @@ function render() {
   document.documentElement.dataset.theme = S().theme;
   housekeeping(); renderTabs();
   ({ home: renderHome, cal: renderCal, puzzle: renderPuzzle, log: renderLog, parent: renderParent })[tab]();
+  if (IS_BETA) $('#view').insertAdjacentHTML('afterbegin', '<div class="pill gold" style="margin-bottom:10px">🧪 試玩版（beta）・資料與正式版分開</div>');
   window.scrollTo(0, 0);
 }
 
