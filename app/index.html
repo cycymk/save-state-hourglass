@@ -67,6 +67,16 @@ h2 { font-size: 1.25em; }
 @keyframes wave { from { transform: translateX(0); } to { transform: translateX(-100px); } }
 .bubble { animation: rise 4s ease-in infinite; opacity: 0; }
 @keyframes rise { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: .8; } 100% { transform: translateY(-120px); opacity: 0; } }
+.lumi-tap { cursor: pointer; }
+.lumi.hop { animation: hop .7s ease-out; transform-box: fill-box; transform-origin: center bottom; }
+@keyframes hop { 0%, 100% { transform: translateY(0); } 30% { transform: translateY(-14px) scale(1.06); } 60% { transform: translateY(2px) scale(.98); } }
+.blink { animation: blink 4.5s infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+.zz { animation: zz 2.6s ease-in-out infinite; }
+@keyframes zz { 0% { transform: translate(0, 0); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(10px, -22px); opacity: 0; } }
+.twinkle { animation: twinkle 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes twinkle { 50% { transform: scale(1.25) rotate(15deg); } }
+@media (prefers-reduced-motion: reduce) { .lumi.hop, .blink, .zz, .twinkle, .wave, .bubble { animation: none; } .zz { opacity: .8; } }
 .speech { display: inline-block; background: var(--card); border: 2px solid var(--line); padding: 8px 14px; border-radius: 18px; margin-bottom: 6px; font-size: .95em; }
 .energy-num { font-size: 2em; font-weight: 800; color: var(--accent); }
 .shelf { display: flex; justify-content: center; gap: 8px; margin: 8px 0 12px; }
@@ -86,10 +96,10 @@ h2 { font-size: 1.25em; }
 
 /* tabbar */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); display: flex; justify-content: space-around; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); z-index: 20; }
-.tabbar button { background: none; flex: 1; padding: 6px 0; font-size: .75em; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.tabbar button { position: relative; background: none; flex: 1; padding: 6px 0; font-size: .75em; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .tabbar button span { font-size: 26px; }
 .tabbar button.on { color: var(--accent); font-weight: 800; }
-.tabbar .badge { position: absolute; margin-left: 22px; background: var(--danger); color: #fff; border-radius: 99px; font-size: 11px; padding: 0 6px; }
+.tabbar .badge { position: absolute; top: 2px; left: calc(50% + 10px); font-style: normal; background: var(--danger); color: #fff; border-radius: 99px; font-size: 11px; padding: 0 6px; }
 
 /* overlays */
 .overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(20,10,50,.45); }
@@ -142,7 +152,7 @@ function seed() {
       pin: '0000', theme: 'kid', kidName: '', energyPerBottle: 100, minutesPerBottle: 30,
       dailyCapWeekday: 60, dailyCapWeekend: 120, maxBottles: 4, curfew: '21:00', cooldownMin: 15,
       puzzleDailyCap: 20, ruleChangeDay: 0, onTimeBonus: 5, fast: false, contractSigned: null,
-      autoApproveHours: 24
+      autoApproveHours: 24, sound: true
     },
     state: { energy: 0, bottles: 0, trust: 100, streakOnTime: 0, lastSessionEnd: 0, ticket: null, appealsWeek: '' },
     tasks: [
@@ -162,7 +172,9 @@ function seed() {
 }
 let db;
 try { db = JSON.parse(localStorage.getItem(KEY)) || seed(); } catch (e) { db = seed(); }
-db.settings = Object.assign(seed().settings, db.settings);
+// 舊資料相容：新欄位用預設值補上，絕不覆蓋已有資料
+{ const d = seed(); db.settings = Object.assign(d.settings, db.settings); db.state = Object.assign(d.state, db.state);
+  ['tasks', 'goals', 'logs', 'pending'].forEach(k => { if (!Array.isArray(db[k])) db[k] = k === 'tasks' || k === 'goals' ? d[k] : []; }); }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
 const S = () => db.settings, ST = () => db.state;
 const unitMs = () => S().fast ? 1000 : 60000; // 測試模式：1 分鐘 = 1 秒
@@ -230,27 +242,44 @@ function toast(msg, ms = 2400) {
   const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg;
   document.body.appendChild(el); setTimeout(() => el.remove(), ms);
 }
-function burst() {
+function burst(sound = 'earn') {
+  sound && sfx(sound);
   for (let i = 0; i < 14; i++) {
     const s = document.createElement('div'); s.className = 'star'; s.textContent = ['✨', '⭐', '💫', '🌟'][i % 4];
     s.style.left = '50%'; s.style.top = '35%';
     s.style.setProperty('--dx', (Math.random() * 300 - 150) + 'px'); s.style.setProperty('--dy', (Math.random() * 300 - 150) + 'px');
     document.body.appendChild(s); setTimeout(() => s.remove(), 1000);
   }
-  chime();
 }
 let actx;
-function chime(freqs = [660, 880, 1320]) {
+// 音效：全部用程式合成，不需要音檔
+function chime(freqs = [660, 880, 1320], o2 = {}) {
+  if (!S().sound) return;
+  const { type = 'sine', gap = .12, vol = .2, len = .35 } = o2;
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume(); // iPad 要在點擊後才能出聲
     freqs.forEach((f, i) => {
       const o = actx.createOscillator(), g = actx.createGain();
-      o.frequency.value = f; o.type = 'sine'; o.connect(g); g.connect(actx.destination);
-      const t = actx.currentTime + i * .12; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.2, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .35);
-      o.start(t); o.stop(t + .4);
+      o.frequency.value = f; o.type = type; o.connect(g); g.connect(actx.destination);
+      const t = actx.currentTime + i * gap; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + len);
+      o.start(t); o.stop(t + len + .05);
     });
   } catch (e) {}
 }
+const SFX = {
+  earn: () => chime([660, 880, 1320]),
+  seal: () => chime([523, 659, 784, 1047, 1319, 1568], { gap: .09, len: .5 }),
+  redeem: () => chime([523, 659, 784, 1047]),
+  bonus: () => chime([784, 988, 1175, 1568], { gap: .08 }),
+  tap: () => chime([1046, 1318], { gap: .06, vol: .12, len: .15 }),
+  right: () => chime([880, 1175], { gap: .06, vol: .15, len: .2 }),
+  soft: () => chime([392, 330], { type: 'triangle', gap: .1, vol: .1, len: .25 }), // 答錯：輕輕的，不刺耳
+  warn5: () => chime([880, 660]),
+  warn1: () => chime([880, 660, 880]),
+  sent: () => chime([740, 988], { gap: .1, vol: .15 })
+};
+const sfx = name => (SFX[name] || SFX.tap)();
 function modal(html, onMount) {
   const L = $('#layer'); const o = document.createElement('div'); o.className = 'overlay';
   o.innerHTML = `<div class="modal">${html}</div>`; L.appendChild(o);
@@ -260,7 +289,8 @@ function modal(html, onMount) {
 }
 function celebrate(res, label) {
   if (!res.gained) { toast('瓶架滿了！先兌換再來收集能量'); return; }
-  burst(); toast(`+${res.gained} 星露　${label}` + (res.sealed ? '　🎉 封好一瓶！' : ''));
+  burst(res.sealed ? 'seal' : 'earn'); lumiYay = Date.now();
+  toast(`+${res.gained} 星露　${label}` + (res.sealed ? '　🎉 封好一瓶！' : ''));
 }
 const fmt = ms => { ms = Math.max(0, ms); const s = Math.round(ms / 1000); return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`; };
 const fmtTime = ts => { const d = new Date(ts); return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
@@ -282,12 +312,60 @@ function render() {
 }
 
 /* ========== home ========== */
+/* 露米：會隨能量改變表情，點她會有反應 */
+let lumiYay = 0, lumiTaps = 0;
+const LUMI_LINES = {
+  kid: {
+    sleepy: ['我好睏…給我一點星露吧 💤', '呼嚕…星露在哪裡呀？', '幫我加一點能量，我就醒來囉'],
+    calm: ['繼續加油，我感覺到魔力了～', '一點一點變多了耶！', '今天也一起努力吧 ✨'],
+    happy: ['好多能量，我快飛起來了！', '再一下下就滿瓶了！', '哇～瓶子亮晶晶的！'],
+    full: ['滿瓶了！快來兌換吧 ✨', '我裝得滿滿的，好開心！'],
+    yay: ['耶！謝謝你的星露！', '好好喝的星露～', '你好棒！我變亮了！'],
+    play: ['好好玩！時間到記得回來喔', '我在這裡幫你看時間 ⏰'],
+    tap: ['嘻嘻，好癢！', '你好呀～我是露米！', '摸摸頭，魔力 +1（騙你的啦）', '我住在瓶子裡，很舒服喔', '今天的任務完成了嗎？']
+  },
+  teen: {
+    sleepy: ['能量偏低，待命中…', '補一點星露，我就上線。', '休眠模式 💤'],
+    calm: ['魔力穩定上升中。', '進度不錯，保持節奏。', '持續累積就對了。'],
+    happy: ['能量充沛，接近滿瓶！', '再一個任務就封瓶。', '狀態絕佳 ✦'],
+    full: ['滿瓶完成，隨時可以兌換。', '能量全滿 ✦'],
+    yay: ['收到星露，謝啦！', '能量入帳 ✦', '漂亮的一手。'],
+    play: ['好好玩，時間到記得收手。', '計時中，我幫你盯著。'],
+    tap: ['在的，有事嗎？', '我是露米，瓶子的守護星靈。', '別戳啦，專心一點 😏', '今天的必做任務搞定了嗎？']
+  }
+};
+function lumiMood(pct) {
+  if (Date.now() - lumiYay < 2500) return 'yay';
+  if (ST().ticket) return 'play';
+  return pct >= 1 ? 'full' : pct > .6 ? 'happy' : pct > .25 ? 'calm' : 'sleepy';
+}
+function lumiLine(mood) {
+  const L = LUMI_LINES[S().theme] || LUMI_LINES.kid;
+  if (mood === 'sleepy' && ST().bottles >= S().maxBottles) return S().theme === 'teen' ? '瓶架已滿，先用掉一瓶吧。' : '瓶架滿了，先用掉一瓶吧！';
+  const arr = L[mood]; return arr[Math.floor(Math.random() * arr.length)];
+}
+function lumiFace(mood) {
+  const ink = 'var(--ink)', cheek = `<circle cx="76" cy="196" r="6" fill="#ff9ab8" opacity="${mood === 'yay' || mood === 'full' ? .9 : .6}"/><circle cx="124" cy="196" r="6" fill="#ff9ab8" opacity="${mood === 'yay' || mood === 'full' ? .9 : .6}"/>`;
+  const openMouth = `<path d="M89 196 Q100 214 111 196 Z" fill="${ink}"/><path d="M95 205 Q100 209 105 205" stroke="#ff9ab8" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  const smile = `<path d="M88 196 Q100 208 112 196" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+  const star = (x) => `<path class="twinkle" d="M${x} 173 L${x + 2.6} 179.4 L${x + 9} 180 L${x + 4} 184.2 L${x + 5.6} 191 L${x} 187.4 L${x - 5.6} 191 L${x - 4} 184.2 L${x - 9} 180 L${x - 2.6} 179.4 Z" fill="var(--gold)" stroke="${ink}" stroke-width="1.5"/>`;
+  const faces = {
+    sleepy: `<path d="M79 182 Q86 188 93 182" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M107 182 Q114 188 121 182" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round"/>
+      ${cheek}<ellipse cx="100" cy="203" rx="4" ry="3" fill="${ink}"/>
+      <text class="zz" x="128" y="166" font-size="16" font-weight="700" fill="var(--muted)">z</text><text class="zz" style="animation-delay:1.3s" x="136" y="156" font-size="12" font-weight="700" fill="var(--muted)">z</text>`,
+    calm: `<g class="blink"><circle cx="86" cy="182" r="6" fill="${ink}"/><circle cx="114" cy="182" r="6" fill="${ink}"/></g>${cheek}${smile}`,
+    happy: `<g class="blink"><circle cx="86" cy="182" r="7.5" fill="${ink}"/><circle cx="114" cy="182" r="7.5" fill="${ink}"/><circle cx="88.5" cy="179" r="2.6" fill="#fff"/><circle cx="116.5" cy="179" r="2.6" fill="#fff"/></g>${cheek}${openMouth}`,
+    full: `${star(86)}${star(114)}${cheek}${openMouth}`,
+    yay: `<path d="M79 185 L86 178 L93 185" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M107 185 L114 178 L121 185" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>${cheek}${openMouth}`,
+    play: `<g class="blink"><circle cx="86" cy="182" r="6" fill="${ink}"/><circle cx="114" cy="182" r="6" fill="${ink}"/></g>${cheek}${smile}`
+  };
+  return faces[mood] || faces.calm;
+}
 function bottleSVG(pct) {
   const y = 250 - pct * 175;
-  const mood = pct >= 1 ? '滿瓶了！快來兌換吧 ✨' : pct > .6 ? '好多能量，我快飛起來了！' : pct > .25 ? '繼續加油，我感覺到魔力了～' : '我好睏…給我一點星露吧 💤';
-  const mouth = pct > .25 ? 'M88 196 Q100 208 112 196' : 'M90 200 H110';
-  return `<div class="speech">露米：${mood}</div>
-  <svg viewBox="0 0 200 270" aria-label="魔法瓶 ${Math.round(pct * 100)}%">
+  const mood = lumiMood(pct);
+  return `<div class="speech" id="lumiSay">露米：${esc(lumiLine(mood))}</div>
+  <svg class="lumi-tap" id="lumi" viewBox="0 0 200 270" role="img" aria-label="魔法瓶 ${Math.round(pct * 100)}%，點一下和露米打招呼">
     <defs>
       <clipPath id="bc"><path d="M82 30 H118 V72 C168 86 186 122 186 168 C186 224 150 256 100 256 C50 256 14 224 14 168 C14 122 32 86 82 72 Z"/></clipPath>
       <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--liquid2)"/><stop offset="1" stop-color="var(--liquid1)"/></linearGradient>
@@ -303,10 +381,26 @@ function bottleSVG(pct) {
     </g>
     <path d="M82 30 H118 V72 C168 86 186 122 186 168 C186 224 150 256 100 256 C50 256 14 224 14 168 C14 122 32 86 82 72 Z" fill="none" stroke="var(--line)" stroke-width="6"/>
     <path d="M40 140 Q36 170 48 200" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round" opacity=".6"/>
-    <circle cx="86" cy="182" r="6" fill="var(--ink)"/><circle cx="114" cy="182" r="6" fill="var(--ink)"/>
-    <circle cx="76" cy="196" r="6" fill="#ff9ab8" opacity=".6"/><circle cx="124" cy="196" r="6" fill="#ff9ab8" opacity=".6"/>
-    <path d="${mouth}" stroke="var(--ink)" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <g class="lumi ${mood === 'yay' ? 'hop' : ''}" id="lumiFace">${lumiFace(mood)}</g>
   </svg>`;
+}
+// 加能量後的開心表情只維持一下，之後回到依能量決定的表情（只換臉，不重畫整頁）
+function lumiSettle(pct) {
+  setTimeout(() => {
+    const f = $('#lumiFace'); if (!f) return;
+    const m = lumiMood(pct); f.classList.remove('hop'); f.innerHTML = lumiFace(m);
+    const say = $('#lumiSay'); if (say) say.textContent = '露米：' + lumiLine(m);
+  }, 2600);
+}
+function lumiPoke(pct) {
+  const f = $('#lumiFace'), say = $('#lumiSay'); if (!f) return;
+  lumiTaps++;
+  const L = LUMI_LINES[S().theme] || LUMI_LINES.kid;
+  say.textContent = '露米：' + L.tap[lumiTaps % L.tap.length];
+  f.innerHTML = lumiFace('yay'); f.classList.remove('hop'); void f.getBBox(); f.classList.add('hop');
+  sfx('tap');
+  clearTimeout(lumiPoke.t);
+  lumiPoke.t = setTimeout(() => { f.classList.remove('hop'); f.innerHTML = lumiFace(lumiMood(pct)); }, 1400);
 }
 function renderHome() {
   const s = ST(), set = S(), pct = s.bottles >= set.maxBottles ? 1 : s.energy / set.energyPerBottle;
@@ -336,6 +430,8 @@ function renderHome() {
   </div>`;
   $('#view').querySelectorAll('[data-do]').forEach(b => b.onclick = () => doTask(b.dataset.do));
   $('#redeem').onclick = redeem;
+  const bp = Math.min(1, pct); $('#lumi').onclick = () => lumiPoke(bp);
+  if (Date.now() - lumiYay < 2500) lumiSettle(bp);
   $('#altReward').onclick = altReward;
   if (tk) $('#tkOpen').onclick = openTicket;
 }
@@ -363,7 +459,7 @@ function doTask(id) {
       <div class="row" style="margin-top:12px"><button class="btn" id="ok">送出給家長</button></div>`, o => {
       o.querySelector('#ok').onclick = () => {
         db.pending.push({ id: uid(), ts: Date.now(), day: dayKey(), taskId: t.id, title: t.title, energy: taskReward(t), note: o.querySelector('#note').value.trim() });
-        log('note', { title: `送出「${t.title}」等待家長核准`, energy: 0 }); save(); o.remove(); toast('已送出！家長核准後就會加能量 ✨'); render();
+        log('note', { title: `送出「${t.title}」等待家長核准`, energy: 0 }); save(); o.remove(); sfx('sent'); toast('已送出！家長核准後就會加能量 ✨'); render();
       };
     });
     return;
@@ -464,7 +560,7 @@ function redeem() {
       const end = Math.min(start + set.minutesPerBottle * unitMs(), curfewDate().getTime() + 30 * 60000);
       s.bottles--; s.ticket = { start, end, minutes: set.minutesPerBottle, warned5: false, warned1: false };
       log('redeem', { title: `兌換遊戲券 ${set.minutesPerBottle} 分`, minutes: set.minutesPerBottle, energy: -set.energyPerBottle });
-      save(); o.remove(); chime([523, 659, 784, 1047]); openTicket();
+      save(); o.remove(); sfx('redeem'); openTicket();
     };
   });
 }
@@ -487,7 +583,7 @@ function endTicket(byKid) {
     s.streakOnTime++;
     const early = tk.end - now > 60000;
     addEnergy(S().onTimeBonus, { title: early ? '提早結束遊戲 👍' : '準時下線獎勵', source: 'bonus' });
-    burst(); toast(`準時下線！+${S().onTimeBonus} 星露，連續 ${s.streakOnTime} 次 🔥`);
+    burst('bonus'); lumiYay = Date.now(); toast(`準時下線！+${S().onTimeBonus} 星露，連續 ${s.streakOnTime} 次 🔥`);
   }
   save(); render();
 }
@@ -498,7 +594,7 @@ function altReward() {
     o.querySelectorAll('[data-i]').forEach(b => b.onclick = () => {
       if (ST().bottles < 1) return toast('還沒有滿瓶喔');
       ST().bottles--; log('redeem', { title: '兌換非 3C 獎勵：' + opts[b.dataset.i], minutes: 0, energy: -S().energyPerBottle });
-      save(); o.remove(); burst(); toast('已兌換！拿給爸媽看紀錄頁 🎁'); render();
+      save(); o.remove(); burst('redeem'); toast('已兌換！拿給爸媽看紀錄頁 🎁'); render();
     });
   });
 }
@@ -570,7 +666,7 @@ function runQuiz(lv) {
     box.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
       const k = b.dataset.k;
       if (k === '⌫') input = input.slice(0, -1);
-      else if (k === '✔') { if (!input) return; if (+input === q.ans) { right++; chime([880]); } else { wrong++; chime([220]); } q = makeQ(lv); input = ''; }
+      else if (k === '✔') { if (!input) return; if (+input === q.ans) { right++; sfx('right'); } else { wrong++; sfx('soft'); } q = makeQ(lv); input = ''; }
       else if (input.length < 4) input += k;
       draw();
     });
@@ -660,18 +756,20 @@ function renderParent() {
   <div class="card"><h2>⚙️ 其他設定</h2>
     <label class="f">介面主題</label>
     <div class="row"><button class="btn small ${set.theme === 'kid' ? '' : 'ghost'}" data-theme="kid">🦄 童話魔法（國小）</button><button class="btn small ${set.theme === 'teen' ? '' : 'ghost'}" data-theme="teen">🌌 星空煉金（國中）</button></div>
+    <label class="f">音效（加能量、封瓶、提醒聲）</label><button class="btn small ${set.sound ? 'mint' : 'ghost'}" id="snd">${set.sound ? '🔊 音效開啟中，點擊關閉' : '🔇 音效已關閉，點擊開啟'}</button>
+    <div class="muted" style="margin-top:4px">iPad 側邊靜音鍵打開時聽不到音效</div>
     <label class="f">變更家長密碼</label><div class="row"><input id="np" type="password" inputmode="numeric" placeholder="新密碼 4–8 位數字"><button class="btn small" id="setpin">儲存</button></div>
     <label class="f">測試模式（1 分鐘縮短為 1 秒，方便試玩）</label><button class="btn small ${set.fast ? 'alt' : 'ghost'}" id="fast">${set.fast ? '已開啟，點擊關閉' : '開啟測試模式'}</button>
     <label class="f">手動加 / 扣能量（會留下紀錄）</label><div class="row"><input id="adj" type="number" placeholder="+10 或 -10"><input id="adjr" placeholder="原因"><button class="btn small" id="adjok">送出</button></div>
-    <label class="f">資料</label><div class="row wrapflex"><button class="btn small ghost" id="exp">匯出備份</button><button class="btn small ghost" id="reset">全部重設</button></div>
-    <p class="muted" style="margin-top:14px">📱 解鎖遊戲 App：v0.1 請用 iPad「設定 → 螢幕使用時間」設定 App 限制，孩子出示遊戲券後由家長暫時放行。之後的原生版會自動處理。</p>
+    <label class="f">資料</label><div class="row wrapflex"><button class="btn small ghost" id="exp">匯出備份</button><button class="btn small ghost" id="reset">重新開始（紀錄保留）</button></div>
+    <p class="muted" style="margin-top:14px">📱 解鎖遊戲 App：網頁版請用 iPad「設定 → 螢幕使用時間」設定 App 限制，孩子出示遊戲券後由家長暫時放行。之後的原生版會自動處理。</p>
   </div>
   <button class="btn ghost" id="lock">🔒 離開家長區</button>`;
 
   const V = $('#view');
   V.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => approve(b.dataset.ap, true));
   V.querySelectorAll('[data-rj]').forEach(b => b.onclick = () => approve(b.dataset.rj, false));
-  const all = $('#appAll'); if (all) all.onclick = () => { db.pending.slice().forEach(p => approve(p.id, true, true)); burst(); render(); };
+  const all = $('#appAll'); if (all) all.onclick = () => { db.pending.slice().forEach(p => approve(p.id, true, true)); burst(); toast(`已全部核准 ✨`); render(); };
   V.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('刪除這個任務？（過去紀錄會保留）')) { db.tasks = db.tasks.filter(t => t.id !== b.dataset.del); save(); render(); } });
   V.querySelectorAll('[data-gdel]').forEach(b => b.onclick = () => { if (confirm('刪除這個目標？')) { db.goals = db.goals.filter(g => g.id !== b.dataset.gdel); db.tasks.forEach(t => { if (t.goalId === b.dataset.gdel) delete t.goalId; }); save(); render(); } });
   V.querySelectorAll('[data-set]').forEach(el => el.onchange = () => {
@@ -686,7 +784,10 @@ function renderParent() {
     if (n > 0) addEnergy(n, { title: '家長加分：' + r, source: 'parent' }); else { ST().energy = Math.max(0, ST().energy + n); log('note', { title: '家長扣分：' + r, energy: n }); save(); }
     toast('已記錄'); render(); };
   $('#exp').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' })); a.download = `starjar-${dayKey()}.json`; a.click(); };
-  $('#reset').onclick = () => { if (confirm('確定清除所有資料？這無法復原')) { db = seed(); save(); parentUnlocked = false; tab = 'home'; render(); } };
+  // 重新開始：任務、能量、規則回到預設，但紀錄不刪（產品承諾）
+  $('#reset').onclick = () => { if (confirm('確定重新開始？能量、瓶子、任務和規則會回到預設，魔法日誌會保留。')) {
+    const keep = db.logs; db = seed(); db.logs = keep; log('note', { title: '家長按了「重新開始」（之前的紀錄都保留）', energy: 0 }); save(); parentUnlocked = false; tab = 'home'; render(); } };
+  $('#snd').onclick = () => { set.sound = !set.sound; save(); if (set.sound) sfx('tap'); render(); };
   $('#lock').onclick = () => { parentUnlocked = false; tab = 'home'; render(); };
   const sg = $('#sign'); if (sg) sg.onclick = () => {
     const n = $('#kn').value.trim(); if (!n) return toast('請填孩子的名字');
@@ -757,8 +858,8 @@ setInterval(() => {
     $('#tt').textContent = fmt(left);
     $('#tmsg').textContent = left <= 0 ? '⏰ 時間到！1 分鐘內按「我準時結束了」拿獎勵' : left < 60000 ? '最後 1 分鐘，準備存檔囉' : left < 5 * 60000 ? '還有 5 分鐘，找個段落停下來' : '好好玩！時間到記得回來按按鈕 ✨';
   }
-  if (!tk.warned5 && left < 5 * 60000 && tk.minutes > 5) { tk.warned5 = true; save(); chime([880, 660]); openTicket(); }
-  if (!tk.warned1 && left < 60000) { tk.warned1 = true; save(); chime([880, 660, 880]); openTicket(); }
+  if (!tk.warned5 && left < 5 * 60000 && tk.minutes > 5) { tk.warned5 = true; save(); sfx('warn5'); openTicket(); }
+  if (!tk.warned1 && left < 60000) { tk.warned1 = true; save(); sfx('warn1'); openTicket(); }
   if (left < -60000) { housekeeping(); render(); }
 }, 500);
 
