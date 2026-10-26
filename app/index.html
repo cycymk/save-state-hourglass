@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>魔法能量瓶</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="魔法能量瓶">
+<meta name="theme-color" content="#7c5cff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-512.png">
+<style>
+:root, :root[data-theme="kid"] {
+  --bg: #fff7ec; --bg2: #ffe9f3; --card: #ffffff; --ink: #3b2a55; --muted: #8a7aa3;
+  --accent: #7c5cff; --accent2: #ff7ab6; --mint: #3ccfa8; --gold: #ffb938; --danger: #ff6b6b;
+  --liquid1: #9b7bff; --liquid2: #ff9ad0; --glass: rgba(124,92,255,.10); --line: #eadff7;
+  --radius: 22px; --font: "jf open 粉圓", "Yuanti TC", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+  --base: 18px;
+}
+:root[data-theme="teen"] {
+  --bg: #0b1030; --bg2: #18144a; --card: #161c45; --ink: #e9ecff; --muted: #9aa3d6;
+  --accent: #33e1ff; --accent2: #b06bff; --mint: #45f0b0; --gold: #ffd166; --danger: #ff6b8b;
+  --liquid1: #33e1ff; --liquid2: #b06bff; --glass: rgba(51,225,255,.08); --line: #2a3270;
+  --radius: 14px; --font: "PingFang TC", "Noto Sans TC", system-ui, sans-serif; --base: 16px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: linear-gradient(160deg, var(--bg), var(--bg2)); background-attachment: fixed;
+  color: var(--ink); font-family: var(--font); font-size: var(--base);
+  padding: env(safe-area-inset-top) 0 calc(84px + env(safe-area-inset-bottom)); overflow-x: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+button { font: inherit; color: inherit; border: 0; cursor: pointer; }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; -webkit-user-select: text; user-select: text; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+h1, h2, h3 { margin: 0 0 10px; }
+h2 { font-size: 1.25em; }
+.muted { color: var(--muted); font-size: .9em; }
+.card { background: var(--card); border-radius: var(--radius); padding: 16px; box-shadow: 0 6px 20px rgba(60,30,120,.08); border: 1px solid var(--line); margin-bottom: 14px; }
+.row { display: flex; gap: 10px; align-items: center; }
+.between { justify-content: space-between; }
+.wrapflex { flex-wrap: wrap; }
+.grid2 { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 760px) { .grid2 { grid-template-columns: 360px 1fr; } }
+.btn { background: var(--accent); color: #fff; padding: 12px 18px; border-radius: 999px; font-weight: 700; min-height: 48px; box-shadow: 0 4px 0 rgba(0,0,0,.15); transition: transform .1s; }
+:root[data-theme="teen"] .btn { color: #071022; }
+.btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.15); }
+.btn.alt { background: var(--accent2); }
+.btn.mint { background: var(--mint); }
+.btn.ghost { background: transparent; color: var(--accent); border: 2px solid var(--accent); box-shadow: none; }
+.btn.small { padding: 8px 14px; min-height: 40px; font-size: .9em; }
+.btn.big { font-size: 1.2em; padding: 16px 26px; width: 100%; }
+.btn[disabled] { opacity: .45; }
+.pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .78em; background: var(--glass); color: var(--accent); font-weight: 700; }
+.pill.gold { color: #a26a00; background: #fff1cc; }
+.pill.red { color: #fff; background: var(--danger); }
+:root[data-theme="teen"] .pill.gold { color: var(--gold); background: rgba(255,209,102,.12); }
+
+/* bottle */
+.bottle-wrap { text-align: center; position: relative; }
+.bottle-wrap svg { width: 230px; max-width: 70vw; height: auto; filter: drop-shadow(0 10px 18px rgba(124,92,255,.25)); }
+.wave { animation: wave 3s linear infinite; }
+.wave.b { animation-duration: 5s; opacity: .55; }
+@keyframes wave { from { transform: translateX(0); } to { transform: translateX(-100px); } }
+.bubble { animation: rise 4s ease-in infinite; opacity: 0; }
+@keyframes rise { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: .8; } 100% { transform: translateY(-120px); opacity: 0; } }
+.speech { display: inline-block; background: var(--card); border: 2px solid var(--line); padding: 8px 14px; border-radius: 18px; margin-bottom: 6px; font-size: .95em; }
+.energy-num { font-size: 2em; font-weight: 800; color: var(--accent); }
+.shelf { display: flex; justify-content: center; gap: 8px; margin: 8px 0 12px; }
+.mini { width: 34px; height: 46px; border-radius: 10px 10px 14px 14px; border: 3px solid var(--line); position: relative; overflow: hidden; background: var(--glass); }
+.mini.full::after { content: ""; position: absolute; inset: 30% 0 0; background: linear-gradient(var(--liquid2), var(--liquid1)); }
+.mini.full::before { content: "★"; position: absolute; z-index: 1; left: 0; right: 0; top: 38%; text-align: center; color: #fff; font-size: 16px; }
+
+/* tasks */
+.task { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: var(--glass); margin-bottom: 10px; }
+.task .ic { font-size: 30px; width: 44px; text-align: center; }
+.task .t { flex: 1; min-width: 0; }
+.task .t b { display: block; }
+.task.done { opacity: .55; }
+.task.done .t b { text-decoration: line-through; }
+.progress { height: 12px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.progress > i { display: block; height: 100%; background: linear-gradient(90deg, var(--mint), var(--accent)); border-radius: 99px; }
+
+/* tabbar */
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); display: flex; justify-content: space-around; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); z-index: 20; }
+.tabbar button { background: none; flex: 1; padding: 6px 0; font-size: .75em; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.tabbar button span { font-size: 26px; }
+.tabbar button.on { color: var(--accent); font-weight: 800; }
+.tabbar .badge { position: absolute; margin-left: 22px; background: var(--danger); color: #fff; border-radius: 99px; font-size: 11px; padding: 0 6px; }
+
+/* overlays */
+.overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(20,10,50,.45); }
+.overlay.full { background: radial-gradient(circle at 50% 40%, #3a2a8a, #0d0830); color: #fff; flex-direction: column; text-align: center; }
+.modal { background: var(--card); border-radius: var(--radius); padding: 20px; width: 100%; max-width: 460px; max-height: 88vh; overflow: auto; }
+.timer { font-size: min(26vw, 160px); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 2px; line-height: 1; }
+.circle { width: min(70vw, 360px); aspect-ratio: 1; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 6px dashed rgba(255,255,255,.35); animation: spin 30s linear infinite; position: relative; }
+.circle > * { animation: spin 30s linear infinite reverse; }
+.circle.paused { animation-play-state: paused; border-color: rgba(255,120,120,.6); }
+.circle.paused > * { animation-play-state: paused; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.meter { width: min(70vw, 360px); height: 16px; border-radius: 99px; background: rgba(255,255,255,.15); overflow: hidden; margin: 18px auto 6px; position: relative; }
+.meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #45f0b0, #ffd166); transition: width .1s; }
+.meter b { position: absolute; top: -3px; bottom: -3px; width: 3px; background: #fff; }
+.toast { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); background: var(--ink); color: var(--card); padding: 12px 20px; border-radius: 999px; z-index: 99; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.2); max-width: 90vw; text-align: center; animation: pop .25s; }
+@keyframes pop { from { transform: translateX(-50%) scale(.7); opacity: 0; } }
+.star { position: fixed; z-index: 98; pointer-events: none; font-size: 28px; animation: burst 1s ease-out forwards; }
+@keyframes burst { to { transform: translate(var(--dx), var(--dy)) scale(.3) rotate(200deg); opacity: 0; } }
+.quiz-q { font-size: 3em; font-weight: 800; margin: 10px 0; }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 320px; margin: 0 auto; }
+.keypad button { background: var(--glass); border-radius: 16px; font-size: 1.6em; font-weight: 800; padding: 14px 0; }
+.day { border-left: 4px solid var(--accent); padding: 8px 12px; margin-bottom: 8px; background: var(--glass); border-radius: 0 12px 12px 0; }
+.day.today { border-color: var(--accent2); }
+.log { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: .92em; }
+.log .when { color: var(--muted); width: 92px; flex: none; }
+label.f { display: block; margin: 10px 0 4px; font-weight: 700; font-size: .9em; }
+.hide { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap" id="view"></div>
+<nav class="tabbar" id="tabbar"></nav>
+<div id="layer"></div>
+
+<script>
+'use strict';
+/* ========== storage ========== */
+const KEY = 'starjar.v1';
+const uid = () => Math.random().toString(36).slice(2, 9);
+const pad = n => String(n).padStart(2, '0');
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return dayKey(d); };
+const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+
+function seed() {
+  const g1 = uid(), g2 = uid();
+  return {
+    settings: {
+      pin: '0000', theme: 'kid', kidName: '', energyPerBottle: 100, minutesPerBottle: 30,
+      dailyCapWeekday: 60, dailyCapWeekend: 120, maxBottles: 4, curfew: '21:00', cooldownMin: 15,
+      puzzleDailyCap: 20, ruleChangeDay: 0, onTimeBonus: 5, fast: false, contractSigned: null,
+      autoApproveHours: 24
+    },
+    state: { energy: 0, bottles: 0, trust: 100, streakOnTime: 0, lastSessionEnd: 0, ticket: null, appealsWeek: '' },
+    tasks: [
+      { id: uid(), title: '寫作業（專注）', icon: '📚', type: 'focus', verify: 'auto', energy: 25, minutes: 25, required: true },
+      { id: uid(), title: '鋼琴練習', icon: '🎹', type: 'practice', verify: 'auto', energy: 30, minutes: 30, required: false, goalId: g2 },
+      { id: uid(), title: '閱讀課外書', icon: '📖', type: 'focus', verify: 'auto', energy: 20, minutes: 20, required: false },
+      { id: uid(), title: '數學習作', icon: '✏️', type: 'homework', verify: 'parent', energy: 30, minutes: 0, required: false, goalId: g1 },
+      { id: uid(), title: '整理書包', icon: '🎒', type: 'life', verify: 'self', energy: 5, minutes: 0, required: true },
+      { id: uid(), title: '刷牙洗臉', icon: '🪥', type: 'life', verify: 'self', energy: 5, minutes: 0, required: false }
+    ],
+    goals: [
+      { id: g1, title: '段考前完成數學習作 ×5', due: addDays(25), kind: 'count', target: 5, created: dayKey() },
+      { id: g2, title: '音樂比賽：每天練琴 60 分', due: addDays(30), kind: 'daily', target: 60, created: dayKey() }
+    ],
+    logs: [], pending: []
+  };
+}
+let db;
+try { db = JSON.parse(localStorage.getItem(KEY)) || seed(); } catch (e) { db = seed(); }
+db.settings = Object.assign(seed().settings, db.settings);
+function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
+const S = () => db.settings, ST = () => db.state;
+const unitMs = () => S().fast ? 1000 : 60000; // 測試模式：1 分鐘 = 1 秒
+function log(kind, o = {}) { db.logs.unshift(Object.assign({ id: uid(), ts: Date.now(), day: dayKey(), kind }, o)); }
+
+/* ========== rules ========== */
+const todayLogs = (kind) => db.logs.filter(l => l.day === dayKey() && (!kind || l.kind === kind));
+const doneToday = (taskId) => todayLogs('earn').filter(l => l.taskId === taskId).length + db.pending.filter(p => p.taskId === taskId && p.day === dayKey()).length;
+const usedMinutesToday = () => todayLogs('redeem').reduce((a, l) => a + (l.minutes || 0), 0);
+const dailyCap = () => { const w = new Date().getDay(); return (w === 0 || w === 6) ? S().dailyCapWeekend : S().dailyCapWeekday; };
+const puzzleToday = () => todayLogs('earn').filter(l => l.source === 'puzzle').reduce((a, l) => a + l.energy, 0);
+const curfewDate = () => { const [h, m] = S().curfew.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d; };
+const oneShot = t => t.type === 'life' || t.type === 'homework';
+
+function addEnergy(amount, meta) {
+  const s = ST(), per = S().energyPerBottle;
+  let gained = 0, sealed = 0;
+  s.energy += amount; gained = amount;
+  while (s.energy >= per && s.bottles < S().maxBottles) { s.energy -= per; s.bottles++; sealed++; }
+  if (s.bottles >= S().maxBottles && s.energy > per) { gained -= (s.energy - per); s.energy = per; }
+  log('earn', Object.assign({ energy: gained }, meta));
+  save();
+  return { gained, sealed };
+}
+function taskReward(t) {
+  const n = todayLogs('earn').filter(l => l.taskId === t.id).length;
+  return n >= 2 ? Math.ceil(t.energy / 2) : t.energy; // 同任務第 3 次起減半
+}
+function redeemBlockers() {
+  const s = ST(), set = S(), why = [];
+  if (s.ticket) why.push('遊戲券正在使用中');
+  if (s.bottles < 1) why.push(`還沒有滿瓶（還差 ${set.energyPerBottle - s.energy} 星露）`);
+  if (new Date() >= curfewDate()) why.push(`${set.curfew} 後魔法瓶休息了，明天再來`);
+  const req = db.tasks.filter(t => t.required && !todayLogs('earn').some(l => l.taskId === t.id));
+  if (req.length) why.push('先完成必做任務：' + req.map(t => t.icon + t.title).join('、'));
+  const left = dailyCap() - usedMinutesToday();
+  if (left < set.minutesPerBottle) why.push(`今天的遊戲時間已用完（上限 ${dailyCap()} 分）`);
+  const cd = s.lastSessionEnd + set.cooldownMin * unitMs() - Date.now();
+  if (cd > 0) why.push(`休息冷卻中，還有 ${Math.ceil(cd / unitMs())} 分鐘（看看遠方、喝口水）`);
+  return why;
+}
+
+/* housekeeping on load / tick */
+function housekeeping() {
+  const hrs = S().autoApproveHours * 3600 * 1000;
+  db.pending.slice().forEach(p => {
+    if (Date.now() - p.ts > hrs) {
+      const t = db.tasks.find(x => x.id === p.taskId);
+      db.pending = db.pending.filter(x => x.id !== p.id);
+      addEnergy(p.energy, { taskId: p.taskId, title: (t ? t.title : p.title) + '（逾時自動核准）', source: 'auto-approve' });
+    }
+  });
+  const tk = ST().ticket;
+  if (tk && Date.now() > tk.end + 60000) { // 結束超過 1 分鐘沒按 → 沒有準時下線
+    ST().ticket = null; ST().lastSessionEnd = tk.end; ST().streakOnTime = 0;
+    log('note', { title: '遊戲券結束，但沒有準時按「我結束了」', energy: 0 });
+    save();
+  }
+}
+
+/* ========== ui helpers ========== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function toast(msg, ms = 2400) {
+  const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el); setTimeout(() => el.remove(), ms);
+}
+function burst() {
+  for (let i = 0; i < 14; i++) {
+    const s = document.createElement('div'); s.className = 'star'; s.textContent = ['✨', '⭐', '💫', '🌟'][i % 4];
+    s.style.left = '50%'; s.style.top = '35%';
+    s.style.setProperty('--dx', (Math.random() * 300 - 150) + 'px'); s.style.setProperty('--dy', (Math.random() * 300 - 150) + 'px');
+    document.body.appendChild(s); setTimeout(() => s.remove(), 1000);
+  }
+  chime();
+}
+let actx;
+function chime(freqs = [660, 880, 1320]) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    freqs.forEach((f, i) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.frequency.value = f; o.type = 'sine'; o.connect(g); g.connect(actx.destination);
+      const t = actx.currentTime + i * .12; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.2, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .35);
+      o.start(t); o.stop(t + .4);
+    });
+  } catch (e) {}
+}
+function modal(html, onMount) {
+  const L = $('#layer'); const o = document.createElement('div'); o.className = 'overlay';
+  o.innerHTML = `<div class="modal">${html}</div>`; L.appendChild(o);
+  o.addEventListener('click', e => { if (e.target === o) o.remove(); });
+  onMount && onMount(o);
+  return o;
+}
+function celebrate(res, label) {
+  if (!res.gained) { toast('瓶架滿了！先兌換再來收集能量'); return; }
+  burst(); toast(`+${res.gained} 星露　${label}` + (res.sealed ? '　🎉 封好一瓶！' : ''));
+}
+const fmt = ms => { ms = Math.max(0, ms); const s = Math.round(ms / 1000); return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`; };
+const fmtTime = ts => { const d = new Date(ts); return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+
+/* ========== tabs ========== */
+let tab = 'home', parentUnlocked = false;
+const TABS = [['home', '🫙', '魔法瓶'], ['cal', '📅', '行事曆'], ['puzzle', '🧩', '益智'], ['log', '📜', '紀錄'], ['parent', '🔐', '家長']];
+function renderTabs() {
+  $('#tabbar').innerHTML = TABS.map(([k, ic, n]) =>
+    `<button class="${tab === k ? 'on' : ''}" data-tab="${k}"><span>${ic}</span>${n}${k === 'parent' && db.pending.length ? `<i class="badge">${db.pending.length}</i>` : ''}</button>`).join('');
+  $('#tabbar').querySelectorAll('button').forEach(b => b.onclick = () => { tab = b.dataset.tab; if (tab !== 'parent') parentUnlocked = false; render(); });
+}
+function render() {
+  document.documentElement.dataset.theme = S().theme;
+  housekeeping(); renderTabs();
+  ({ home: renderHome, cal: renderCal, puzzle: renderPuzzle, log: renderLog, parent: renderParent })[tab]();
+  window.scrollTo(0, 0);
+}
+
+/* ========== home ========== */
+function bottleSVG(pct) {
+  const y = 250 - pct * 175;
+  const mood = pct >= 1 ? '滿瓶了！快來兌換吧 ✨' : pct > .6 ? '好多能量，我快飛起來了！' : pct > .25 ? '繼續加油，我感覺到魔力了～' : '我好睏…給我一點星露吧 💤';
+  const mouth = pct > .25 ? 'M88 196 Q100 208 112 196' : 'M90 200 H110';
+  return `<div class="speech">露米：${mood}</div>
+  <svg viewBox="0 0 200 270" aria-label="魔法瓶 ${Math.round(pct * 100)}%">
+    <defs>
+      <clipPath id="bc"><path d="M82 30 H118 V72 C168 86 186 122 186 168 C186 224 150 256 100 256 C50 256 14 224 14 168 C14 122 32 86 82 72 Z"/></clipPath>
+      <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--liquid2)"/><stop offset="1" stop-color="var(--liquid1)"/></linearGradient>
+    </defs>
+    <rect x="76" y="14" width="48" height="20" rx="6" fill="#c89b6d"/>
+    <g clip-path="url(#bc)">
+      <rect x="0" y="0" width="200" height="270" fill="var(--glass)"/>
+      <g transform="translate(0 ${y})">
+        <path class="wave b" fill="url(#lg)" d="M0 4 Q25 -6 50 4 T100 4 T150 4 T200 4 T250 4 T300 4 V300 H0 Z"/>
+        <path class="wave" fill="url(#lg)" d="M0 0 Q25 -9 50 0 T100 0 T150 0 T200 0 T250 0 T300 0 V300 H0 Z"/>
+      </g>
+      ${pct > 0.05 ? [40, 80, 130, 160].map((x, i) => `<circle class="bubble" style="animation-delay:${i * .9}s" cx="${x}" cy="245" r="${4 + i % 3 * 2}" fill="#fff"/>`).join('') : ''}
+    </g>
+    <path d="M82 30 H118 V72 C168 86 186 122 186 168 C186 224 150 256 100 256 C50 256 14 224 14 168 C14 122 32 86 82 72 Z" fill="none" stroke="var(--line)" stroke-width="6"/>
+    <path d="M40 140 Q36 170 48 200" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round" opacity=".6"/>
+    <circle cx="86" cy="182" r="6" fill="var(--ink)"/><circle cx="114" cy="182" r="6" fill="var(--ink)"/>
+    <circle cx="76" cy="196" r="6" fill="#ff9ab8" opacity=".6"/><circle cx="124" cy="196" r="6" fill="#ff9ab8" opacity=".6"/>
+    <path d="${mouth}" stroke="var(--ink)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+function renderHome() {
+  const s = ST(), set = S(), pct = s.bottles >= set.maxBottles ? 1 : s.energy / set.energyPerBottle;
+  const blockers = redeemBlockers();
+  const name = set.kidName ? `${esc(set.kidName)} 的` : '我的';
+  const tk = s.ticket;
+  $('#view').innerHTML = `
+  ${!set.contractSigned ? `<div class="card" style="border:2px dashed var(--accent2)"><b>📝 還沒簽「家庭契約」</b><div class="muted">請爸爸媽媽到「家長」頁面，和孩子一起確認規則並簽名。</div></div>` : ''}
+  ${tk ? `<div class="card row between" style="background:var(--mint);color:#06281f"><div><b>🎮 遊戲券使用中</b><div>剩下 <b id="tkLeft">${fmt(tk.end - Date.now())}</b></div></div><button class="btn small" id="tkOpen">打開計時</button></div>` : ''}
+  <div class="grid2">
+    <div class="card bottle-wrap">
+      <h2>${name}魔法瓶</h2>
+      ${bottleSVG(Math.min(1, pct))}
+      <div><span class="energy-num">${s.energy}</span> / ${set.energyPerBottle} 星露</div>
+      <div class="shelf">${Array.from({ length: set.maxBottles }, (_, i) => `<div class="mini ${i < s.bottles ? 'full' : ''}"></div>`).join('')}</div>
+      <div class="muted">瓶架 ${s.bottles}/${set.maxBottles}・1 瓶 = ${set.minutesPerBottle} 分鐘遊戲時間</div>
+      <div class="muted">今天已用 ${usedMinutesToday()} / ${dailyCap()} 分・準時下線連續 ${s.streakOnTime} 次 🔥</div>
+      <div style="margin-top:12px"><button class="btn big alt" id="redeem" ${blockers.length ? 'disabled' : ''}>🎮 用 1 瓶換 ${set.minutesPerBottle} 分鐘</button></div>
+      ${blockers.length ? `<div class="muted" style="margin-top:8px;text-align:left">${blockers.map(b => '・' + esc(b)).join('<br>')}</div>` : ''}
+      <div style="margin-top:10px"><button class="btn small ghost" id="altReward">🎁 換「非 3C」獎勵</button></div>
+    </div>
+    <div class="card">
+      <div class="row between"><h2>今日任務</h2><span class="muted">週${WEEK[new Date().getDay()]}・${dayKey()}</span></div>
+      ${db.tasks.map(taskRow).join('') || '<div class="muted">還沒有任務，請家長新增</div>'}
+      <div class="muted" style="margin-top:6px">🤖 自動驗證　👀 家長核准　🤝 誠信回報・同一任務第 3 次起能量減半</div>
+    </div>
+  </div>`;
+  $('#view').querySelectorAll('[data-do]').forEach(b => b.onclick = () => doTask(b.dataset.do));
+  $('#redeem').onclick = redeem;
+  $('#altReward').onclick = altReward;
+  if (tk) $('#tkOpen').onclick = openTicket;
+}
+function taskRow(t) {
+  const n = doneToday(t.id), pend = db.pending.some(p => p.taskId === t.id && p.day === dayKey());
+  const done = oneShot(t) && n > 0;
+  const v = { auto: '🤖', parent: '👀', self: '🤝' }[t.verify];
+  const label = t.type === 'practice' ? '開始練習' : t.type === 'focus' ? '開始專注' : t.verify === 'parent' ? '完成，請家長看' : '我完成了';
+  return `<div class="task ${done ? 'done' : ''}">
+    <div class="ic">${t.icon}</div>
+    <div class="t"><b>${esc(t.title)}</b>
+      <span class="muted">${v} +${taskReward(t)} 星露${t.minutes ? `・${t.minutes} 分鐘` : ''}</span>
+      ${t.required ? ' <span class="pill red">必做</span>' : ''} ${n && !oneShot(t) ? ` <span class="pill">今天 ${n} 次</span>` : ''}
+    </div>
+    ${pend ? '<span class="pill gold">等待核准</span>' : done ? '<span class="pill">✔ 完成</span>' : `<button class="btn small ${t.type === 'practice' ? 'alt' : ''}" data-do="${t.id}">${label}</button>`}
+  </div>`;
+}
+function doTask(id) {
+  const t = db.tasks.find(x => x.id === id); if (!t) return;
+  if (ST().ticket) return toast('遊戲時間中不能做任務喔，先結束遊戲券');
+  if (t.type === 'focus' || t.type === 'practice') return startFocus(t);
+  if (t.verify === 'parent') {
+    modal(`<h2>${t.icon} ${esc(t.title)}</h2><p class="muted">寫一句話給爸媽（例如：做了第幾頁、哪裡不會）</p>
+      <textarea id="note" rows="3" placeholder="例：p.12–15 寫完了，第 7 題不太會"></textarea>
+      <div class="row" style="margin-top:12px"><button class="btn" id="ok">送出給家長</button></div>`, o => {
+      o.querySelector('#ok').onclick = () => {
+        db.pending.push({ id: uid(), ts: Date.now(), day: dayKey(), taskId: t.id, title: t.title, energy: taskReward(t), note: o.querySelector('#note').value.trim() });
+        log('note', { title: `送出「${t.title}」等待家長核准`, energy: 0 }); save(); o.remove(); toast('已送出！家長核准後就會加能量 ✨'); render();
+      };
+    });
+    return;
+  }
+  const res = addEnergy(taskReward(t), { taskId: t.id, title: t.title, source: 'self' });
+  celebrate(res, t.title); render();
+}
+
+/* ========== focus / practice mode ========== */
+let focus = null;
+async function startFocus(t) {
+  const total = t.minutes * unitMs();
+  const practice = t.type === 'practice';
+  const o = document.createElement('div'); o.className = 'overlay full';
+  o.innerHTML = `
+    <div style="font-size:1.4em;margin-bottom:10px">${t.icon} ${esc(t.title)}</div>
+    <div class="circle" id="fc"><div class="timer" id="ft">${fmt(total)}</div><div id="fs" style="margin-top:8px;opacity:.8">準備中…</div></div>
+    ${practice ? `<div class="meter"><i id="fm"></i><b id="fth" style="left:20%"></b></div><div style="opacity:.75;font-size:.85em">聲音超過白線，魔法陣才會轉動</div>` : ''}
+    <div style="margin-top:22px;opacity:.7;font-size:.85em">💡 想鎖住 iPad？請家長開「引導使用模式」：連按三下側邊按鈕</div>
+    <button class="btn ghost" style="margin-top:14px;color:#fff;border-color:rgba(255,255,255,.5)" id="fq">放棄（只拿部分能量）</button>`;
+  $('#layer').appendChild(o);
+  try { (o.requestFullscreen || o.webkitRequestFullscreen || (() => {})).call(o); } catch (e) {}
+  focus = { t, total, done: 0, last: performance.now(), lastSound: 0, o, practice, stream: null, raf: 0, threshold: 0.03, left: false };
+  if (practice) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false } });
+      focus.stream = stream;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser(); an.fftSize = 1024; src.connect(an);
+      focus.ctx = ctx; focus.an = an; focus.buf = new Float32Array(an.fftSize);
+      $('#fs').textContent = '安靜 2 秒，校準環境音…';
+      const samples = []; const t0 = performance.now();
+      await new Promise(r => { const f = () => { samples.push(rms()); if (performance.now() - t0 < 2000) requestAnimationFrame(f); else r(); }; f(); });
+      const amb = samples.reduce((a, b) => a + b, 0) / samples.length;
+      focus.threshold = Math.max(amb * 2.5, 0.02);
+      $('#fth').style.left = Math.min(95, focus.threshold / 0.3 * 100) + '%';
+    } catch (e) {
+      $('#fs').textContent = '⚠️ 無法使用麥克風，改為一般計時';
+      focus.practice = false;
+    }
+  }
+  focus.last = performance.now(); focus.lastSound = focus.last;
+  o.querySelector('#fq').onclick = () => endFocus(false);
+  loop();
+}
+function rms() {
+  if (!focus || !focus.an) return 0;
+  focus.an.getFloatTimeDomainData(focus.buf);
+  let s = 0; for (const v of focus.buf) s += v * v; return Math.sqrt(s / focus.buf.length);
+}
+function loop() {
+  if (!focus) return;
+  const now = performance.now(), dt = now - focus.last; focus.last = now;
+  let running = true;
+  if (focus.practice) {
+    const lv = rms(); $('#fm').style.width = Math.min(100, lv / 0.3 * 100) + '%';
+    if (lv > focus.threshold) focus.lastSound = now;
+    const silent = now - focus.lastSound;
+    running = silent < 1500;
+    $('#fs').textContent = running ? '🎵 魔法陣運轉中' : silent > 10000 ? '🌙 魔法陣暫停了，繼續演奏吧！' : '…聽不到聲音';
+  } else { $('#fs').textContent = '✨ 專注中，魔法陣運轉中'; }
+  $('#fc').classList.toggle('paused', !running);
+  if (running) focus.done += dt;
+  $('#ft').textContent = fmt(focus.total - focus.done);
+  if (focus.done >= focus.total) return endFocus(true);
+  focus.raf = setTimeout(loop, 100);
+}
+function endFocus(complete) {
+  if (!focus) return;
+  const { t, total, done, o, stream, ctx, left } = focus;
+  clearTimeout(focus.raf);
+  stream && stream.getTracks().forEach(x => x.stop()); ctx && ctx.close();
+  try { document.fullscreenElement && document.exitFullscreen(); document.webkitFullscreenElement && document.webkitExitFullscreen(); } catch (e) {}
+  o.remove(); focus = null;
+  const full = taskReward(t);
+  if (complete) {
+    const res = addEnergy(full, { taskId: t.id, title: t.title, source: 'auto', minutes: t.minutes });
+    celebrate(res, `完成 ${t.title}`);
+  } else {
+    const part = Math.floor(full * (done / total) * 0.5);
+    if (part > 0) { addEnergy(part, { title: `${t.title}（中途結束 ${Math.round(done / total * 100)}%）`, source: 'partial' }); }
+    toast(left ? '你離開了魔法陣，只拿到部分能量' : `中途結束，拿到 ${part} 星露`);
+  }
+  render();
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden && focus) { focus.left = true; endFocus(false); } });
+
+/* ========== redeem / ticket ========== */
+function redeem() {
+  const why = redeemBlockers(); if (why.length) return toast(why[0]);
+  const set = S(), s = ST();
+  modal(`<h2>🎮 兌換遊戲券</h2><p>用 <b>1 瓶</b>換 <b>${set.minutesPerBottle} 分鐘</b>。</p>
+    <p class="muted">・結束前 5 分鐘、1 分鐘會提醒<br>・時間到 1 分鐘內按「我準時結束了」→ +${set.onTimeBonus} 星露<br>・結束後要休息 ${set.cooldownMin} 分鐘才能再兌換<br>・平板請交給爸媽解鎖遊戲 App</p>
+    <div class="row"><button class="btn alt" id="go">確定兌換</button><button class="btn ghost" id="no">再想想</button></div>`, o => {
+    o.querySelector('#no').onclick = () => o.remove();
+    o.querySelector('#go').onclick = () => {
+      const start = Date.now();
+      const end = Math.min(start + set.minutesPerBottle * unitMs(), curfewDate().getTime() + 30 * 60000);
+      s.bottles--; s.ticket = { start, end, minutes: set.minutesPerBottle, warned5: false, warned1: false };
+      log('redeem', { title: `兌換遊戲券 ${set.minutesPerBottle} 分`, minutes: set.minutesPerBottle, energy: -set.energyPerBottle });
+      save(); o.remove(); chime([523, 659, 784, 1047]); openTicket();
+    };
+  });
+}
+let ticketEl = null;
+function openTicket() {
+  if (ticketEl) return;
+  const o = document.createElement('div'); o.className = 'overlay full';
+  o.innerHTML = `<div style="font-size:1.3em">🎮 遊戲時間</div><div class="timer" id="tt" style="margin:20px 0">--:--</div>
+    <div id="tmsg" style="opacity:.85;min-height:1.5em">好好玩！時間到記得回來按按鈕 ✨</div>
+    <div class="row" style="margin-top:22px;justify-content:center"><button class="btn mint" id="tend">✅ 我準時結束了</button><button class="btn ghost" style="color:#fff;border-color:rgba(255,255,255,.5)" id="thide">先收起來</button></div>`;
+  $('#layer').appendChild(o); ticketEl = o;
+  o.querySelector('#thide').onclick = () => { o.remove(); ticketEl = null; };
+  o.querySelector('#tend').onclick = () => endTicket(true);
+}
+function endTicket(byKid) {
+  const s = ST(), tk = s.ticket; if (!tk) return;
+  const now = Date.now(); s.ticket = null; s.lastSessionEnd = Math.min(now, tk.end);
+  if (ticketEl) { ticketEl.remove(); ticketEl = null; }
+  if (byKid && now <= tk.end + 60000) {
+    s.streakOnTime++;
+    const early = tk.end - now > 60000;
+    addEnergy(S().onTimeBonus, { title: early ? '提早結束遊戲 👍' : '準時下線獎勵', source: 'bonus' });
+    burst(); toast(`準時下線！+${S().onTimeBonus} 星露，連續 ${s.streakOnTime} 次 🔥`);
+  }
+  save(); render();
+}
+function altReward() {
+  const opts = ['🏀 和爸媽打球 30 分', '🍝 我來選晚餐', '🎲 全家桌遊時間', '🕒 晚 15 分鐘睡（假日）', '🍦 一支冰淇淋'];
+  modal(`<h2>🎁 非 3C 獎勵</h2><p class="muted">用 1 瓶換一個現實世界的獎勵，送給爸媽確認</p>
+    ${opts.map((x, i) => `<button class="btn ghost" style="width:100%;margin-bottom:8px" data-i="${i}">${x}</button>`).join('')}`, o => {
+    o.querySelectorAll('[data-i]').forEach(b => b.onclick = () => {
+      if (ST().bottles < 1) return toast('還沒有滿瓶喔');
+      ST().bottles--; log('redeem', { title: '兌換非 3C 獎勵：' + opts[b.dataset.i], minutes: 0, energy: -S().energyPerBottle });
+      save(); o.remove(); burst(); toast('已兌換！拿給爸媽看紀錄頁 🎁'); render();
+    });
+  });
+}
+
+/* ========== calendar ========== */
+function goalProgress(g) {
+  const linked = db.tasks.filter(t => t.goalId === g.id).map(t => t.id);
+  const ls = db.logs.filter(l => l.kind === 'earn' && linked.includes(l.taskId) && l.day >= g.created);
+  if (g.kind === 'count') return { val: ls.length, target: g.target, text: `${ls.length} / ${g.target} 次` };
+  const byDay = {}; ls.forEach(l => byDay[l.day] = (byDay[l.day] || 0) + (l.minutes || 0));
+  const okDays = Object.values(byDay).filter(m => m >= g.target).length;
+  let streak = 0; // 今天還沒練完不算斷
+  for (let i = 0; i < 400; i++) { if ((byDay[addDays(-i)] || 0) >= g.target) streak++; else if (i > 0) break; }
+  const totalDays = Math.max(1, Math.round((new Date(g.due) - new Date(g.created)) / 864e5) + 1);
+  return { val: okDays, target: totalDays, text: `達標 ${okDays} 天・今天 ${byDay[dayKey()] || 0}/${g.target} 分・連續 ${streak} 天 🔥` };
+}
+const daysLeft = due => Math.ceil((new Date(due + 'T23:59:59') - new Date()) / 864e5);
+function renderCal() {
+  const goals = db.goals.slice().sort((a, b) => a.due.localeCompare(b.due));
+  const days = Array.from({ length: 14 }, (_, i) => addDays(i));
+  $('#view').innerHTML = `
+  <div class="card"><h2>🏁 目標任務（遠征）</h2>
+    ${goals.map(g => { const p = goalProgress(g), d = daysLeft(g.due); return `<div style="margin-bottom:14px">
+      <div class="row between"><b>${esc(g.title)}</b><span class="pill ${d <= 3 ? 'red' : d <= 7 ? 'gold' : ''}">${d >= 0 ? `倒數 ${d} 天` : '已結束'}</span></div>
+      <div class="progress" style="margin:6px 0"><i style="width:${Math.min(100, p.val / p.target * 100)}%"></i></div>
+      <div class="muted">${p.text}・截止 ${g.due}</div></div>`; }).join('') || '<div class="muted">還沒有目標任務</div>'}
+  </div>
+  <div class="card"><h2>📅 未來兩週</h2>
+    ${days.map(k => { const d = new Date(k + 'T00:00'); const due = goals.filter(g => g.due === k);
+      const earned = db.logs.filter(l => l.day === k && l.kind === 'earn').reduce((a, l) => a + l.energy, 0);
+      return `<div class="day ${k === dayKey() ? 'today' : ''}"><div class="row between"><b>${d.getMonth() + 1}/${d.getDate()}（${WEEK[d.getDay()]}）${k === dayKey() ? '・今天' : ''}${d.getDay() === S().ruleChangeDay ? '・🏠 家庭會議日' : ''}</b>${earned ? `<span class="pill">+${earned}</span>` : ''}</div>
+      ${due.map(g => `<div>🚩 ${esc(g.title)} 截止</div>`).join('')}</div>`; }).join('')}
+  </div>`;
+}
+
+/* ========== puzzle: 閃電心算 ========== */
+function renderPuzzle() {
+  const left = S().puzzleDailyCap - puzzleToday();
+  $('#view').innerHTML = `<div class="card" style="text-align:center">
+    <h2>⚡ 閃電心算</h2><p class="muted">60 秒內答對越多越好。每答對 2 題 +1 星露，今天還能拿 <b>${Math.max(0, left)}</b> 星露。</p>
+    <div class="row" style="justify-content:center;gap:8px;margin-bottom:12px">
+      ${[['1', '低年級'], ['2', '中年級'], ['3', '高年級/國中']].map(([v, n]) => `<button class="btn small ${v === '2' ? '' : 'ghost'}" data-lv="${v}">${n}</button>`).join('')}
+    </div>
+    <div id="qz"><button class="btn big" id="qs">開始挑戰</button></div>
+    <p class="muted" style="margin-top:14px">更多小遊戲（華容道、記憶翻牌、24 點）會在之後版本加入</p></div>`;
+  let lv = 2;
+  $('#view').querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { lv = +b.dataset.lv; $('#view').querySelectorAll('[data-lv]').forEach(x => x.classList.toggle('ghost', x !== b)); });
+  $('#qs').onclick = () => runQuiz(lv);
+}
+function makeQ(lv) {
+  const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const ops = lv === 1 ? ['+', '-'] : lv === 2 ? ['+', '-', '×'] : ['+', '-', '×', '÷'];
+  const op = ops[r(0, ops.length - 1)];
+  const max = lv === 1 ? 20 : lv === 2 ? 50 : 100;
+  let a, b, ans;
+  if (op === '+') { a = r(1, max); b = r(1, max); ans = a + b; }
+  if (op === '-') { a = r(1, max); b = r(1, a); ans = a - b; }
+  if (op === '×') { a = r(2, lv === 2 ? 9 : 19); b = r(2, 9); ans = a * b; }
+  if (op === '÷') { b = r(2, 12); ans = r(2, 12); a = b * ans; }
+  return { text: `${a} ${op} ${b}`, ans };
+}
+function runQuiz(lv) {
+  let q = makeQ(lv), input = '', right = 0, wrong = 0; const end = Date.now() + 60000;
+  const box = $('#qz');
+  const draw = () => {
+    box.innerHTML = `<div class="row between"><span class="pill">✔ ${right}　✘ ${wrong}</span><span class="pill gold" id="qt">${fmt(end - Date.now())}</span></div>
+      <div class="quiz-q">${q.text} = <span style="color:var(--accent)">${input || '?'}</span></div>
+      <div class="keypad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, '⌫', 0, '✔'].map(k => `<button data-k="${k}">${k}</button>`).join('')}</div>`;
+    box.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+      const k = b.dataset.k;
+      if (k === '⌫') input = input.slice(0, -1);
+      else if (k === '✔') { if (!input) return; if (+input === q.ans) { right++; chime([880]); } else { wrong++; chime([220]); } q = makeQ(lv); input = ''; }
+      else if (input.length < 4) input += k;
+      draw();
+    });
+  };
+  draw();
+  const iv = setInterval(() => {
+    const el = $('#qt'); if (!el) return clearInterval(iv);
+    el.textContent = fmt(end - Date.now());
+    if (Date.now() >= end) {
+      clearInterval(iv);
+      const can = Math.max(0, S().puzzleDailyCap - puzzleToday());
+      const got = Math.min(can, Math.floor(right / 2));
+      let msg = `答對 ${right} 題、答錯 ${wrong} 題。`;
+      if (got > 0) { const res = addEnergy(got, { title: `閃電心算 答對 ${right} 題`, source: 'puzzle' }); celebrate(res, '閃電心算'); msg += ` 獲得 ${res.gained} 星露！`; }
+      else msg += can <= 0 ? ' 今天益智能量已滿，可以繼續玩當作放鬆～' : ' 再挑戰一次吧！';
+      box.innerHTML = `<div class="quiz-q">🎉</div><p>${msg}</p><button class="btn" id="qs2">再玩一次</button>`;
+      $('#qs2').onclick = () => runQuiz(lv);
+    }
+  }, 250);
+}
+
+/* ========== logs ========== */
+function renderLog() {
+  const icon = { earn: '✨', redeem: '🎮', approve: '✅', reject: '↩️', note: '📝' };
+  const week = Array.from({ length: 7 }, (_, i) => addDays(-6 + i));
+  const stat = week.map(k => ({ k, e: db.logs.filter(l => l.day === k && l.kind === 'earn').reduce((a, l) => a + l.energy, 0), m: db.logs.filter(l => l.day === k && l.kind === 'redeem').reduce((a, l) => a + (l.minutes || 0), 0) }));
+  const mx = Math.max(30, ...stat.map(s => Math.max(s.e, s.m)));
+  $('#view').innerHTML = `
+  <div class="card"><h2>📊 這一週</h2>
+    <div class="row" style="align-items:flex-end;height:140px;gap:6px">${stat.map(s => `<div style="flex:1;text-align:center">
+      <div class="row" style="align-items:flex-end;justify-content:center;gap:3px;height:110px">
+        <div title="獲得星露" style="width:40%;height:${s.e / mx * 100}%;background:var(--accent);border-radius:6px 6px 0 0"></div>
+        <div title="遊戲分鐘" style="width:40%;height:${s.m / mx * 100}%;background:var(--accent2);border-radius:6px 6px 0 0"></div></div>
+      <div class="muted" style="font-size:.75em">${WEEK[new Date(s.k + 'T00:00').getDay()]}</div></div>`).join('')}</div>
+    <div class="muted"><span style="color:var(--accent)">■</span> 獲得星露　<span style="color:var(--accent2)">■</span> 遊戲分鐘</div>
+  </div>
+  <div class="card"><h2>📜 魔法日誌</h2><p class="muted">所有紀錄都不能刪除，口說無憑，紀錄為證。</p>
+    ${db.logs.slice(0, 200).map(l => `<div class="log"><span class="when">${fmtTime(l.ts)}</span><span>${icon[l.kind] || '•'} ${esc(l.title || '')}${l.energy ? ` <b>${l.energy > 0 ? '+' : ''}${l.energy}</b>` : ''}</span></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
+  </div>`;
+}
+
+/* ========== parent ========== */
+function renderParent() {
+  if (!parentUnlocked) {
+    $('#view').innerHTML = `<div class="card" style="max-width:420px;margin:30px auto;text-align:center"><h2>🔐 家長區</h2>
+      <p class="muted">請輸入家長密碼${S().pin === '0000' ? '（預設 0000，進去後請修改）' : ''}</p>
+      <input id="pin" type="password" inputmode="numeric" maxlength="8" style="text-align:center;font-size:1.6em;letter-spacing:8px">
+      <button class="btn big" style="margin-top:12px" id="pinok">進入</button></div>`;
+    const go = () => { if ($('#pin').value === S().pin) { parentUnlocked = true; render(); } else { toast('密碼不對'); $('#pin').value = ''; } };
+    $('#pinok').onclick = go; $('#pin').onkeydown = e => e.key === 'Enter' && go();
+    return;
+  }
+  const set = S();
+  const canEdit = !set.contractSigned || new Date().getDay() === set.ruleChangeDay;
+  $('#view').innerHTML = `
+  <div class="card"><div class="row between"><h2>👀 待核准（${db.pending.length}）</h2>${db.pending.length > 1 ? '<button class="btn small mint" id="appAll">全部核准</button>' : ''}</div>
+    ${db.pending.map(p => `<div class="task"><div class="t"><b>${esc(p.title)}</b><span class="muted">${fmtTime(p.ts)}・+${p.energy}${p.note ? '・「' + esc(p.note) + '」' : ''}</span></div>
+      <button class="btn small mint" data-ap="${p.id}">核准</button><button class="btn small ghost" data-rj="${p.id}">退回</button></div>`).join('') || `<div class="muted">沒有待核准項目。超過 ${set.autoApproveHours} 小時未處理會自動核准。</div>`}
+  </div>
+
+  <div class="card"><div class="row between"><h2>📋 任務管理</h2><button class="btn small" id="addTask">＋ 新增任務</button></div>
+    ${db.tasks.map(t => `<div class="task"><div class="ic">${t.icon}</div><div class="t"><b>${esc(t.title)}</b>
+      <span class="muted">${{ focus: '專注', practice: '練習(聲音)', life: '生活', homework: '作業' }[t.type]}・${{ auto: '自動驗證', parent: '家長核准', self: '誠信回報' }[t.verify]}・${t.energy} 星露${t.minutes ? '・' + t.minutes + ' 分' : ''}${t.required ? '・必做' : ''}${t.goalId ? '・🏁 ' + esc((db.goals.find(g => g.id === t.goalId) || {}).title || '') : ''}</span></div>
+      <button class="btn small ghost" data-del="${t.id}">刪除</button></div>`).join('')}
+  </div>
+
+  <div class="card"><div class="row between"><h2>🏁 目標任務</h2><button class="btn small" id="addGoal">＋ 新增目標</button></div>
+    ${db.goals.map(g => `<div class="task"><div class="t"><b>${esc(g.title)}</b><span class="muted">截止 ${g.due}・${g.kind === 'count' ? '完成 ' + g.target + ' 次' : '每天 ' + g.target + ' 分'}</span></div><button class="btn small ghost" data-gdel="${g.id}">刪除</button></div>`).join('')}
+  </div>
+
+  <div class="card"><h2>📝 家庭契約與規則</h2>
+    ${set.contractSigned ? `<p>✅ ${esc(set.kidName)} 與家長已於 ${fmtTime(set.contractSigned)} 簽署。</p>` : '<p class="muted">首次使用：和孩子一起調整下面的規則，再按「親子一起簽署」。</p>'}
+    <p class="muted">${canEdit ? '🟢 今天可以修改規則。' : `🔒 規則只能在「家庭會議日」（週${WEEK[set.ruleChangeDay]}）修改，家長和孩子都要遵守。`}</p>
+    <fieldset ${canEdit ? '' : 'disabled'} style="border:0;padding:0;margin:0">
+      <div class="grid2" style="grid-template-columns:1fr 1fr">
+        ${numField('energyPerBottle', '1 瓶需要幾星露')}${numField('minutesPerBottle', '1 瓶換幾分鐘')}
+        ${numField('dailyCapWeekday', '平日每天上限（分）')}${numField('dailyCapWeekend', '假日每天上限（分）')}
+        ${numField('maxBottles', '瓶架最多存幾瓶')}${numField('cooldownMin', '兩次遊戲間休息（分）')}
+        ${numField('puzzleDailyCap', '益智每日能量上限')}${numField('onTimeBonus', '準時下線獎勵')}
+        <div><label class="f">宵禁時間</label><input type="time" data-set="curfew" value="${set.curfew}"></div>
+        <div><label class="f">家庭會議日</label><select data-set="ruleChangeDay">${WEEK.map((w, i) => `<option value="${i}" ${i === set.ruleChangeDay ? 'selected' : ''}>週${w}</option>`).join('')}</select></div>
+      </div>
+    </fieldset>
+    ${!set.contractSigned ? `<label class="f">孩子的名字</label><input id="kn" value="${esc(set.kidName)}" placeholder="例：小安"><button class="btn big alt" style="margin-top:12px" id="sign">🤝 親子一起簽署</button>` : ''}
+  </div>
+
+  <div class="card"><h2>⚙️ 其他設定</h2>
+    <label class="f">介面主題</label>
+    <div class="row"><button class="btn small ${set.theme === 'kid' ? '' : 'ghost'}" data-theme="kid">🦄 童話魔法（國小）</button><button class="btn small ${set.theme === 'teen' ? '' : 'ghost'}" data-theme="teen">🌌 星空煉金（國中）</button></div>
+    <label class="f">變更家長密碼</label><div class="row"><input id="np" type="password" inputmode="numeric" placeholder="新密碼 4–8 位數字"><button class="btn small" id="setpin">儲存</button></div>
+    <label class="f">測試模式（1 分鐘縮短為 1 秒，方便試玩）</label><button class="btn small ${set.fast ? 'alt' : 'ghost'}" id="fast">${set.fast ? '已開啟，點擊關閉' : '開啟測試模式'}</button>
+    <label class="f">手動加 / 扣能量（會留下紀錄）</label><div class="row"><input id="adj" type="number" placeholder="+10 或 -10"><input id="adjr" placeholder="原因"><button class="btn small" id="adjok">送出</button></div>
+    <label class="f">資料</label><div class="row wrapflex"><button class="btn small ghost" id="exp">匯出備份</button><button class="btn small ghost" id="reset">全部重設</button></div>
+    <p class="muted" style="margin-top:14px">📱 解鎖遊戲 App：v0.1 請用 iPad「設定 → 螢幕使用時間」設定 App 限制，孩子出示遊戲券後由家長暫時放行。之後的原生版會自動處理。</p>
+  </div>
+  <button class="btn ghost" id="lock">🔒 離開家長區</button>`;
+
+  const V = $('#view');
+  V.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => approve(b.dataset.ap, true));
+  V.querySelectorAll('[data-rj]').forEach(b => b.onclick = () => approve(b.dataset.rj, false));
+  const all = $('#appAll'); if (all) all.onclick = () => { db.pending.slice().forEach(p => approve(p.id, true, true)); burst(); render(); };
+  V.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('刪除這個任務？（過去紀錄會保留）')) { db.tasks = db.tasks.filter(t => t.id !== b.dataset.del); save(); render(); } });
+  V.querySelectorAll('[data-gdel]').forEach(b => b.onclick = () => { if (confirm('刪除這個目標？')) { db.goals = db.goals.filter(g => g.id !== b.dataset.gdel); db.tasks.forEach(t => { if (t.goalId === b.dataset.gdel) delete t.goalId; }); save(); render(); } });
+  V.querySelectorAll('[data-set]').forEach(el => el.onchange = () => {
+    const k = el.dataset.set; set[k] = (k === 'curfew') ? el.value : Math.max(0, +el.value);
+    log('note', { title: `規則修改：${k} → ${set[k]}`, energy: 0 }); save(); toast('已更新規則');
+  });
+  V.querySelectorAll('[data-theme]').forEach(b => b.onclick = () => { set.theme = b.dataset.theme; save(); render(); });
+  $('#addTask').onclick = taskForm; $('#addGoal').onclick = goalForm;
+  $('#setpin').onclick = () => { const v = $('#np').value; if (!/^\d{4,8}$/.test(v)) return toast('請輸入 4–8 位數字'); set.pin = v; save(); toast('密碼已更新'); $('#np').value = ''; };
+  $('#fast').onclick = () => { set.fast = !set.fast; save(); render(); };
+  $('#adjok').onclick = () => { const n = parseInt($('#adj').value, 10); if (!n) return; const r = $('#adjr').value.trim() || '家長調整';
+    if (n > 0) addEnergy(n, { title: '家長加分：' + r, source: 'parent' }); else { ST().energy = Math.max(0, ST().energy + n); log('note', { title: '家長扣分：' + r, energy: n }); save(); }
+    toast('已記錄'); render(); };
+  $('#exp').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' })); a.download = `starjar-${dayKey()}.json`; a.click(); };
+  $('#reset').onclick = () => { if (confirm('確定清除所有資料？這無法復原')) { db = seed(); save(); parentUnlocked = false; tab = 'home'; render(); } };
+  $('#lock').onclick = () => { parentUnlocked = false; tab = 'home'; render(); };
+  const sg = $('#sign'); if (sg) sg.onclick = () => {
+    const n = $('#kn').value.trim(); if (!n) return toast('請填孩子的名字');
+    modal(`<h2>🤝 家庭契約</h2><p>${esc(n)} 和爸媽約定：</p><ul class="muted">
+      <li>完成任務收集星露，${set.energyPerBottle} 星露 = 1 瓶 = ${set.minutesPerBottle} 分鐘</li>
+      <li>平日最多 ${set.dailyCapWeekday} 分、假日最多 ${set.dailyCapWeekend} 分</li>
+      <li>${set.curfew} 之後不兌換，兩次遊戲間休息 ${set.cooldownMin} 分</li>
+      <li>必做任務完成後才能兌換</li><li>時間到自己準時結束，有額外獎勵</li>
+      <li>規則只在每週${WEEK[set.ruleChangeDay]}的家庭會議修改，平常大家都不討價還價</li></ul>
+      <button class="btn big alt" id="ok">我們都同意 ✍️</button>`, o => o.querySelector('#ok').onclick = () => {
+        set.kidName = n; set.contractSigned = Date.now(); log('note', { title: `${n} 與家長簽署家庭契約`, energy: 0 }); save(); o.remove(); burst(); render();
+      });
+  };
+}
+function numField(k, label) { return `<div><label class="f">${label}</label><input type="number" inputmode="numeric" data-set="${k}" value="${S()[k]}"></div>`; }
+function approve(id, ok, silent) {
+  const p = db.pending.find(x => x.id === id); if (!p) return;
+  db.pending = db.pending.filter(x => x.id !== id);
+  if (ok) { addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長核准）', source: 'parent' }); }
+  else { log('reject', { title: `「${p.title}」被退回，請再檢查一次`, energy: 0 }); save(); }
+  if (!silent) { ok ? toast('已核准 ✨') : toast('已退回'); render(); }
+}
+function taskForm() {
+  const icons = ['📚', '📖', '✏️', '🎹', '🎻', '🎸', '🥁', '🏃', '🎒', '🪥', '🧹', '🍽️', '🌱', '🧮', '🔤', '💤'];
+  modal(`<h2>＋ 新增任務</h2>
+    <label class="f">名稱</label><input id="tt" placeholder="例：國文作業">
+    <label class="f">圖示</label><div class="row wrapflex" id="ics">${icons.map((i, n) => `<button class="btn small ${n ? 'ghost' : ''}" data-ic="${i}" style="font-size:1.3em">${i}</button>`).join('')}</div>
+    <label class="f">類型</label><select id="ty"><option value="focus">專注計時（自動驗證）</option><option value="practice">樂器練習（偵測聲音）</option><option value="homework">作業（家長核准）</option><option value="life">生活習慣</option></select>
+    <div id="vbox"><label class="f">驗證方式</label><select id="vf"><option value="self">誠信回報</option><option value="parent">家長核准</option></select></div>
+    <div class="grid2" style="grid-template-columns:1fr 1fr"><div><label class="f">星露</label><input id="en" type="number" value="20"></div><div id="mbox"><label class="f">分鐘</label><input id="mi" type="number" value="25"></div></div>
+    <label class="f">連結目標（選填）</label><select id="gl"><option value="">無</option>${db.goals.map(g => `<option value="${g.id}">${esc(g.title)}</option>`).join('')}</select>
+    <label class="row" style="margin-top:12px"><input type="checkbox" id="rq" style="width:auto"> 必做（沒完成不能兌換）</label>
+    <button class="btn big" style="margin-top:14px" id="ok">新增</button>`, o => {
+    let icon = icons[0];
+    o.querySelectorAll('[data-ic]').forEach(b => b.onclick = () => { icon = b.dataset.ic; o.querySelectorAll('[data-ic]').forEach(x => x.classList.toggle('ghost', x !== b)); });
+    const sync = () => { const t = o.querySelector('#ty').value; o.querySelector('#mbox').classList.toggle('hide', !(t === 'focus' || t === 'practice')); o.querySelector('#vbox').classList.toggle('hide', t !== 'life'); };
+    o.querySelector('#ty').onchange = sync; sync();
+    o.querySelector('#ok').onclick = () => {
+      const title = o.querySelector('#tt').value.trim(); if (!title) return toast('請輸入名稱');
+      const type = o.querySelector('#ty').value;
+      const verify = type === 'homework' ? 'parent' : type === 'life' ? o.querySelector('#vf').value : 'auto';
+      const t = { id: uid(), title, icon, type, verify, energy: Math.max(1, +o.querySelector('#en').value || 10), minutes: (type === 'focus' || type === 'practice') ? Math.max(1, +o.querySelector('#mi').value || 25) : 0, required: o.querySelector('#rq').checked };
+      const g = o.querySelector('#gl').value; if (g) t.goalId = g;
+      db.tasks.push(t); log('note', { title: `新增任務：${title}`, energy: 0 }); save(); o.remove(); render();
+    };
+  });
+}
+function goalForm() {
+  modal(`<h2>🏁 新增目標任務</h2>
+    <label class="f">名稱</label><input id="gt" placeholder="例：模擬考前完成數學作業 ×4">
+    <label class="f">截止日</label><input id="gd" type="date" value="${addDays(14)}">
+    <label class="f">目標類型</label><select id="gk"><option value="count">完成連結任務 N 次</option><option value="daily">每天練習 N 分鐘</option></select>
+    <label class="f">N</label><input id="gn" type="number" value="4">
+    <p class="muted">新增後，到「新增任務」時選擇連結這個目標。</p>
+    <button class="btn big" id="ok">新增</button>`, o => o.querySelector('#ok').onclick = () => {
+      const title = o.querySelector('#gt').value.trim(); if (!title) return toast('請輸入名稱');
+      db.goals.push({ id: uid(), title, due: o.querySelector('#gd').value, kind: o.querySelector('#gk').value, target: Math.max(1, +o.querySelector('#gn').value || 1), created: dayKey() });
+      save(); o.remove(); render();
+    });
+}
+
+/* ========== ticker ========== */
+setInterval(() => {
+  const tk = ST().ticket; if (!tk) return;
+  const left = tk.end - Date.now();
+  const el = $('#tkLeft'); if (el) el.textContent = fmt(left);
+  if (ticketEl) {
+    $('#tt').textContent = fmt(left);
+    $('#tmsg').textContent = left <= 0 ? '⏰ 時間到！1 分鐘內按「我準時結束了」拿獎勵' : left < 60000 ? '最後 1 分鐘，準備存檔囉' : left < 5 * 60000 ? '還有 5 分鐘，找個段落停下來' : '好好玩！時間到記得回來按按鈕 ✨';
+  }
+  if (!tk.warned5 && left < 5 * 60000 && tk.minutes > 5) { tk.warned5 = true; save(); chime([880, 660]); openTicket(); }
+  if (!tk.warned1 && left < 60000) { tk.warned1 = true; save(); chime([880, 660, 880]); openTicket(); }
+  if (left < -60000) { housekeeping(); render(); }
+}, 500);
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+render();
+if (ST().ticket) openTicket();
+</script>
+</body>
+</html>
