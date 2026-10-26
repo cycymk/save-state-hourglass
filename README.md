@@ -6,7 +6,7 @@
 - 版本紀錄：[CHANGELOG.md](CHANGELOG.md)
 
 ## 在 iPad / 手機上安裝測試
-1. 用 Safari 打開 GitHub Pages 網址（`https://<你的帳號>.github.io/<repo 名稱>/`）
+1. 用 Safari 打開 https://cycymk.github.io/save-state-hourglass/
 2. 點「分享」→「加入主畫面」
 3. 從主畫面開啟，就像 App 一樣全螢幕執行
 
