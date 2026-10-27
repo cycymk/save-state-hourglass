@@ -481,12 +481,30 @@ function lumiPoke(pct) {
   clearTimeout(lumiPoke.t);
   lumiPoke.t = setTimeout(() => { f.classList.remove('hop'); f.innerHTML = lumiFace(lumiMood(pct)); }, 1400);
 }
+/* ========== 全螢幕 ==========
+   從主畫面圖示開啟（standalone）本來就是全螢幕；在瀏覽器分頁開啟時，瀏覽器規定要先點一下才能進全螢幕，所以第一次點畫面就自動切換 */
+const STANDALONE = (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) || navigator.standalone === true;
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function goFullscreen(el = document.documentElement) {
+  try { const f = el.requestFullscreen || el.webkitRequestFullscreen; if (f) { const p = f.call(el); if (p && p.catch) p.catch(() => {}); } } catch (e) {}
+}
+if (!STANDALONE) document.addEventListener('pointerdown', () => { if (!isFullscreen()) goFullscreen(); }, { once: true, capture: true });
+function installHintHTML() {
+  let hide = false; try { hide = localStorage.getItem('starjar.hideInstallHint') === '1'; } catch (e) {}
+  if (STANDALONE || hide) return '';
+  return `<div class="card row between" style="border:2px dashed var(--accent)"><div><b>📲 想要一打開就是全螢幕？</b>
+    <div class="muted">${IS_IOS ? '在 Safari 點上方的「分享」<b>⬆️</b> →「加入主畫面」，之後從主畫面的魔法瓶圖示開啟，就會直接全螢幕，像 App 一樣。' : '在瀏覽器選單選「安裝應用程式」或「加到主畫面」，之後從圖示開啟就會直接全螢幕。'}</div></div>
+    <button class="btn small ghost" onclick="try{localStorage.setItem('starjar.hideInstallHint','1')}catch(e){};this.closest('.card').remove()">知道了</button></div>`;
+}
+
 function renderHome() {
   const s = ST(), set = S(), pct = s.bottles >= set.maxBottles ? 1 : s.energy / set.energyPerBottle;
   const blockers = redeemBlockers();
   const name = set.kidName ? `${esc(set.kidName)} 的` : '我的';
   const tk = s.ticket;
   $('#view').innerHTML = `
+  ${installHintHTML()}
   ${!set.contractSigned ? `<div class="card" style="border:2px dashed var(--accent2)"><b>📝 還沒簽「家庭契約」</b><div class="muted">請爸爸媽媽到「家長」頁面，和孩子一起確認規則並簽名。</div></div>` : ''}
   ${tk ? `<div class="card row between" style="background:var(--mint);color:#06281f"><div><b>🎮 遊戲券使用中</b><div>剩下 <b id="tkLeft">${fmt(tk.end - Date.now())}</b></div></div><button class="btn small" id="tkOpen">打開計時</button></div>` : ''}
   <div class="grid2">
@@ -560,7 +578,7 @@ async function startFocus(t) {
     <div style="margin-top:22px;opacity:.7;font-size:.85em">💡 想鎖住 iPad？請家長開「引導使用模式」：連按三下側邊按鈕</div>
     <button class="btn ghost" style="margin-top:14px;color:#fff;border-color:rgba(255,255,255,.5)" id="fq">放棄（只拿部分能量）</button>`;
   $('#layer').appendChild(o);
-  try { (o.requestFullscreen || o.webkitRequestFullscreen || (() => {})).call(o); } catch (e) {}
+  if (!isFullscreen()) goFullscreen(o);
   focus = { t, total, done: 0, last: performance.now(), lastSound: 0, o, practice, stream: null, raf: 0, threshold: 0.03, left: false };
   if (practice) {
     try {
@@ -611,7 +629,9 @@ function endFocus(complete) {
   const { t, total, done, o, stream, ctx, left } = focus;
   clearTimeout(focus.raf);
   stream && stream.getTracks().forEach(x => x.stop()); ctx && ctx.close();
-  try { document.fullscreenElement && document.exitFullscreen(); document.webkitFullscreenElement && document.webkitExitFullscreen(); } catch (e) {}
+  // 只退出專注模式自己開的全螢幕；整個 App 本來就是全螢幕時保持不動
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  try { if (fsEl === o) (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {}
   o.remove(); focus = null;
   const full = taskReward(t);
   if (complete) {
