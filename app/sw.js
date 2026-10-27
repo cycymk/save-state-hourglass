@@ -1,5 +1,5 @@
 // 離線快取：網路優先，失敗時用快取（改版後重新整理即可拿到新版）
-const CACHE = 'starjar-v0.2.0';
+const CACHE = 'starjar-v0.2.1';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
