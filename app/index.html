@@ -34,6 +34,8 @@ body {
 }
 /* 只讓按鈕、瓶子等互動元素不可選取；不能設在 body，否則 iPad Safari 的輸入框會打不了字 */
 button, .tabbar, .bottle-wrap svg, .keypad, .kidbar, .pinpad { -webkit-user-select: none; user-select: none; }
+/* 關掉 iPad「點兩下放大」：否則快速連按同一顆鍵（例如密碼 0000）第二下會被吃掉 */
+html, body, button, label, input, select, textarea { touch-action: manipulation; }
 button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; -webkit-user-select: text; user-select: text; }
 .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
@@ -481,12 +483,30 @@ function lumiPoke(pct) {
   clearTimeout(lumiPoke.t);
   lumiPoke.t = setTimeout(() => { f.classList.remove('hop'); f.innerHTML = lumiFace(lumiMood(pct)); }, 1400);
 }
+/* ========== 全螢幕 ==========
+   從主畫面圖示開啟（standalone）本來就是全螢幕；在瀏覽器分頁開啟時，瀏覽器規定要先點一下才能進全螢幕，所以第一次點畫面就自動切換 */
+const STANDALONE = (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) || navigator.standalone === true;
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function goFullscreen(el = document.documentElement) {
+  try { const f = el.requestFullscreen || el.webkitRequestFullscreen; if (f) { const p = f.call(el); if (p && p.catch) p.catch(() => {}); } } catch (e) {}
+}
+if (!STANDALONE) document.addEventListener('pointerdown', () => { if (!isFullscreen()) goFullscreen(); }, { once: true, capture: true });
+function installHintHTML() {
+  let hide = false; try { hide = localStorage.getItem('starjar.hideInstallHint') === '1'; } catch (e) {}
+  if (STANDALONE || hide) return '';
+  return `<div class="card row between" style="border:2px dashed var(--accent)"><div><b>📲 想要一打開就是全螢幕？</b>
+    <div class="muted">${IS_IOS ? '在 Safari 點上方的「分享」<b>⬆️</b> →「加入主畫面」，之後從主畫面的魔法瓶圖示開啟，就會直接全螢幕，像 App 一樣。' : '在瀏覽器選單選「安裝應用程式」或「加到主畫面」，之後從圖示開啟就會直接全螢幕。'}</div></div>
+    <button class="btn small ghost" onclick="try{localStorage.setItem('starjar.hideInstallHint','1')}catch(e){};this.closest('.card').remove()">知道了</button></div>`;
+}
+
 function renderHome() {
   const s = ST(), set = S(), pct = s.bottles >= set.maxBottles ? 1 : s.energy / set.energyPerBottle;
   const blockers = redeemBlockers();
   const name = set.kidName ? `${esc(set.kidName)} 的` : '我的';
   const tk = s.ticket;
   $('#view').innerHTML = `
+  ${installHintHTML()}
   ${!set.contractSigned ? `<div class="card" style="border:2px dashed var(--accent2)"><b>📝 還沒簽「家庭契約」</b><div class="muted">請爸爸媽媽到「家長」頁面，和孩子一起確認規則並簽名。</div></div>` : ''}
   ${tk ? `<div class="card row between" style="background:var(--mint);color:#06281f"><div><b>🎮 遊戲券使用中</b><div>剩下 <b id="tkLeft">${fmt(tk.end - Date.now())}</b></div></div><button class="btn small" id="tkOpen">打開計時</button></div>` : ''}
   <div class="grid2">
@@ -560,7 +580,7 @@ async function startFocus(t) {
     <div style="margin-top:22px;opacity:.7;font-size:.85em">💡 想鎖住 iPad？請家長開「引導使用模式」：連按三下側邊按鈕</div>
     <button class="btn ghost" style="margin-top:14px;color:#fff;border-color:rgba(255,255,255,.5)" id="fq">放棄（只拿部分能量）</button>`;
   $('#layer').appendChild(o);
-  try { (o.requestFullscreen || o.webkitRequestFullscreen || (() => {})).call(o); } catch (e) {}
+  if (!isFullscreen()) goFullscreen(o);
   focus = { t, total, done: 0, last: performance.now(), lastSound: 0, o, practice, stream: null, raf: 0, threshold: 0.03, left: false };
   if (practice) {
     try {
@@ -611,7 +631,9 @@ function endFocus(complete) {
   const { t, total, done, o, stream, ctx, left } = focus;
   clearTimeout(focus.raf);
   stream && stream.getTracks().forEach(x => x.stop()); ctx && ctx.close();
-  try { document.fullscreenElement && document.exitFullscreen(); document.webkitFullscreenElement && document.webkitExitFullscreen(); } catch (e) {}
+  // 只退出專注模式自己開的全螢幕；整個 App 本來就是全螢幕時保持不動
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  try { if (fsEl === o) (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {}
   o.remove(); focus = null;
   const full = taskReward(t);
   if (complete) {
@@ -792,11 +814,13 @@ function renderLog() {
 /* ========== parent ========== */
 function renderParent() {
   if (!parentUnlocked) {
-    $('#view').innerHTML = `<div class="card" style="max-width:420px;margin:30px auto;text-align:center"><h2>🔐 家長區</h2><div id="pp"></div></div>`;
+    $('#view').innerHTML = `<div class="card" style="max-width:420px;margin:30px auto;text-align:center"><h2>🔐 家長區</h2><div id="pp"></div>
+      <button class="btn small ghost" style="margin-top:14px" id="forgot">忘記密碼？</button></div>`;
     pinPad($('#pp'), {
       len: fam.pin.length, hint: `請輸入家長密碼${fam.pin === '0000' ? '（預設 0000，進去後請修改）' : ''}`,
       check: v => { const ok = v === fam.pin; if (ok) { parentUnlocked = true; render(); } else toast('密碼不對'); return ok; }
     });
+    $('#forgot').onclick = forgotPin;
     return;
   }
   const set = S();
@@ -814,6 +838,8 @@ function renderParent() {
       ${k === db ? '' : `<button class="btn small ghost" data-kid="${k.id}">切換</button>`}<button class="btn small ghost" data-kedit="${k.id}">編輯</button></div>`).join('')}
     <p class="muted">下面的任務、目標、規則都是 <b>${esc(kidLabel(db))}</b> 的，每個孩子各自一套。家長密碼全家共用。</p>
   </div>
+
+  ${backupCardHTML()}
 
   <div class="card"><div class="row between"><h2>📋 任務管理</h2><button class="btn small" id="addTask">＋ 新增任務</button></div>
     ${db.tasks.map(t => `<div class="task"><div class="ic">${t.icon}</div><div class="t"><b>${esc(t.title)}</b>
@@ -849,7 +875,7 @@ function renderParent() {
     <label class="f">家長密碼（全家共用）</label><button class="btn small ghost" id="setpin">🔑 變更家長密碼</button>
     <label class="f">測試模式（1 分鐘縮短為 1 秒，方便試玩）</label><button class="btn small ${set.fast ? 'alt' : 'ghost'}" id="fast">${set.fast ? '已開啟，點擊關閉' : '開啟測試模式'}</button>
     <label class="f">手動加 / 扣能量（會留下紀錄）</label><div class="row"><input id="adj" type="number" placeholder="+10 或 -10"><input id="adjr" placeholder="原因"><button class="btn small" id="adjok">送出</button></div>
-    <label class="f">資料</label><div class="row wrapflex"><button class="btn small ghost" id="exp">匯出備份</button><button class="btn small ghost" id="reset">重新開始（紀錄保留）</button></div>
+    <label class="f">資料</label><div class="row wrapflex"><button class="btn small ghost" id="reset">重新開始（紀錄保留）</button></div>
     <p class="muted" style="margin-top:14px">📱 解鎖遊戲 App：網頁版請用 iPad「設定 → 螢幕使用時間」設定 App 限制，孩子出示遊戲券後由家長暫時放行。之後的原生版會自動處理。</p>
   </div>
   <button class="btn ghost" id="lock">🔒 離開家長區</button>`;
@@ -873,7 +899,9 @@ function renderParent() {
   $('#adjok').onclick = () => { const n = parseInt($('#adj').value, 10); if (!n) return; const r = $('#adjr').value.trim() || '家長調整';
     if (n > 0) addEnergy(n, { title: '家長加分：' + r, source: 'parent' }); else { ST().energy = Math.max(0, ST().energy + n); log('note', { title: '家長扣分：' + r, energy: n }); save(); }
     toast('已記錄'); render(); };
-  $('#exp').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(fam, null, 2)], { type: 'application/json' })); a.download = `starjar-${dayKey()}.json`; a.click(); };
+  $('#exp').onclick = exportBackup;
+  $('#imp').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importBackup(f); };
+  const ur = $('#undoRestore'); if (ur) ur.onclick = undoRestore;
   // 重新開始：任務、能量、規則回到預設，但紀錄不刪（產品承諾）
   $('#reset').onclick = () => { if (confirm(`確定讓 ${kidLabel(db)} 重新開始？能量、瓶子、任務和規則會回到預設，魔法日誌會保留。`)) {
     const old = db, fresh = newKid(old.settings.kidName, old.settings.grade);
@@ -893,6 +921,95 @@ function renderParent() {
         set.kidName = n; set.contractSigned = Date.now(); log('note', { title: `${n} 與家長簽署家庭契約`, energy: 0 }); save(); o.remove(); burst(); render();
       });
   };
+}
+// 忘記家長密碼：按住 10 秒重設為 0000，並在每個孩子的魔法日誌留下紀錄（留痕，孩子偷用也看得出來）
+function forgotPin() {
+  modal(`<h2>🔑 忘記家長密碼</h2>
+    <p class="muted">按住下面的按鈕 <b>10 秒</b>，家長密碼會重設為 <b>0000</b>。<br>每個孩子的魔法日誌都會記錄「家長密碼被重設」，紀錄無法刪除。</p>
+    <div class="progress" style="margin:14px 0"><i id="hp" style="width:0"></i></div>
+    <button class="btn big alt" id="hold" style="touch-action:none">按住不放</button>`, o => {
+    const btn = o.querySelector('#hold'), bar = o.querySelector('#hp');
+    let t0 = 0, iv = 0;
+    const stop = () => { clearInterval(iv); iv = 0; if (bar.style.width !== '100%') { bar.style.width = '0'; btn.textContent = '按住不放'; } };
+    btn.onpointerdown = e => {
+      e.preventDefault(); t0 = Date.now(); clearInterval(iv);
+      iv = setInterval(() => {
+        const p = Math.min(1, (Date.now() - t0) / 10000);
+        bar.style.width = p * 100 + '%'; btn.textContent = `繼續按住… ${Math.ceil(10 - p * 10)}`;
+        if (p >= 1) {
+          clearInterval(iv); iv = 0; fam.pin = '0000';
+          fam.kids.forEach(k => withKid(k, () => log('note', { title: '⚠️ 家長密碼被重設為 0000', energy: 0 })));
+          save(); o.remove(); toast('家長密碼已重設為 0000，進去後請修改'); render();
+        }
+      }, 100);
+    };
+    btn.onpointerup = btn.onpointerleave = btn.onpointercancel = stop;
+    btn.oncontextmenu = e => e.preventDefault(); // 長按不要跳出選單
+  });
+}
+
+/* ========== 備份與還原 ========== */
+// 資料只存在這台裝置，所以要定期匯出到 iCloud 雲碟等地方；還原前會自動保留一份目前資料，可以反悔
+const RKEY = FKEY + '.before-restore';
+const daysSince = ts => ts ? Math.floor((Date.now() - ts) / 864e5) : null;
+function backupCardHTML() {
+  const d = daysSince(fam.lastBackup);
+  const warn = d === null || d >= 7;
+  let undo = null; try { undo = JSON.parse(localStorage.getItem(RKEY)); } catch (e) {}
+  return `<div class="card" ${warn ? 'style="border:2px dashed var(--gold)"' : ''}><h2>💾 備份與還原</h2>
+    <p class="muted">資料只存在這台裝置。刪掉主畫面的 App、清除 Safari 資料或換新 iPad 都會讓資料消失，建議<b>每週備份一次</b>，存到「檔案」App 的 iCloud 雲碟。</p>
+    <p>${d === null ? '⚠️ 還沒有備份過' : d === 0 ? '✅ 今天已備份' : `${warn ? '⚠️' : '✅'} 上次備份：${d} 天前`}</p>
+    <div class="row wrapflex"><button class="btn small" id="exp">📤 匯出備份</button>
+      <label class="btn small ghost" style="display:inline-flex;align-items:center">📥 從備份檔還原<input type="file" id="imp" accept=".json,application/json" style="display:none"></label></div>
+    ${undo ? `<p class="muted" style="margin-top:10px">上次還原前的資料還留著（${fmtTime(undo.savedAt)}）。<button class="btn small ghost" id="undoRestore">↩️ 復原到還原前</button></p>` : ''}
+  </div>`;
+}
+async function exportBackup() {
+  const data = Object.assign({}, fam, { app: 'starjar', exportedAt: Date.now() });
+  const name = `魔法能量瓶備份-${dayKey()}.json`;
+  const file = new File([JSON.stringify(data, null, 2)], name, { type: 'application/json' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: name }); // iPad：分享選單 →「儲存到檔案」→ iCloud 雲碟
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click();
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return toast('已取消備份'); }
+  fam.lastBackup = Date.now(); save(); toast('備份完成 💾'); render();
+}
+// 接受新版（家庭）與 v0.1–v0.2 舊版（單一孩子）兩種備份格式
+function parseBackup(text) {
+  const d = JSON.parse(text);
+  if (d && Array.isArray(d.kids) && d.kids.length) return { pin: d.pin || fam.pin, kids: d.kids, cur: d.cur, lastBackup: d.exportedAt || Date.now(), exportedAt: d.exportedAt };
+  if (d && d.settings && d.state && Array.isArray(d.logs)) return { pin: d.settings.pin || fam.pin, kids: [d], cur: null, lastBackup: Date.now() };
+  throw new Error('不是魔法能量瓶的備份檔');
+}
+function importBackup(f) {
+  const rd = new FileReader();
+  rd.onload = () => {
+    let nf; try { nf = parseBackup(rd.result); nf.kids.forEach(upgradeKid); } catch (e) { return toast('讀不懂這個檔案，請選「魔法能量瓶備份」的 .json 檔'); }
+    const sum = nf.kids.map(k => `<li><b>${esc(k.settings.kidName || '未命名')}</b>：${k.state.bottles} 瓶 ${k.state.energy} 星露、${k.logs.length} 筆紀錄</li>`).join('');
+    modal(`<h2>📥 從備份還原</h2>
+      <p>備份時間：${nf.exportedAt ? fmtTime(nf.exportedAt) : '不明（舊版備份）'}</p><ul>${sum}</ul>
+      <p class="muted">⚠️ 目前這台 iPad 上的資料會被備份內容取代（家長密碼也會變成備份裡的）。目前的資料會先自動保留一份，還原後如果後悔，可以按「復原到還原前」。</p>
+      <div class="row"><button class="btn alt" id="go">確定還原</button><button class="btn ghost" id="no">取消</button></div>`, o => {
+      o.querySelector('#no').onclick = () => o.remove();
+      o.querySelector('#go').onclick = () => {
+        try { localStorage.setItem(RKEY, JSON.stringify(Object.assign({}, fam, { savedAt: Date.now() }))); } catch (e) {}
+        fam = nf; db = fam.kids.find(k => k.id === fam.cur) || fam.kids[0]; fam.cur = db.id;
+        fam.kids.forEach(k => withKid(k, () => log('note', { title: '家長從備份檔還原資料', energy: 0 })));
+        save(); o.remove(); burst(); toast('還原完成 ✨'); render();
+      };
+    });
+  };
+  rd.readAsText(f);
+}
+function undoRestore() {
+  let prev; try { prev = JSON.parse(localStorage.getItem(RKEY)); } catch (e) {}
+  if (!prev || !confirm('回到還原前的資料？目前的資料會被取代。')) return;
+  delete prev.savedAt; fam = prev; fam.kids.forEach(upgradeKid); db = fam.kids.find(k => k.id === fam.cur) || fam.kids[0]; fam.cur = db.id;
+  try { localStorage.removeItem(RKEY); } catch (e) {}
+  save(); toast('已回到還原前的資料'); render();
 }
 function numField(k, label) { return `<div><label class="f">${label}</label><input type="number" inputmode="numeric" data-set="${k}" value="${S()[k]}"></div>`; }
 function approve(id, ok, silent) {
