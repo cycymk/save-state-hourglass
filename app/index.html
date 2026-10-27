@@ -31,8 +31,9 @@ body {
   background: linear-gradient(160deg, var(--bg), var(--bg2)); background-attachment: fixed;
   color: var(--ink); font-family: var(--font); font-size: var(--base);
   padding: env(safe-area-inset-top) 0 calc(84px + env(safe-area-inset-bottom)); overflow-x: hidden;
-  -webkit-user-select: none; user-select: none;
 }
+/* 只讓按鈕、瓶子等互動元素不可選取；不能設在 body，否則 iPad Safari 的輸入框會打不了字 */
+button, .tabbar, .bottle-wrap svg, .keypad, .kidbar, .pinpad { -webkit-user-select: none; user-select: none; }
 button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; -webkit-user-select: text; user-select: text; }
 .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
@@ -126,6 +127,18 @@ h2 { font-size: 1.25em; }
 .log { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: .92em; }
 .log .when { color: var(--muted); width: 92px; flex: none; }
 label.f { display: block; margin: 10px 0 4px; font-weight: 700; font-size: .9em; }
+/* 孩子切換列 */
+.kidbar { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 12px; }
+.kidbar button { flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: var(--card); border: 2px solid var(--line); font-weight: 700; min-height: 44px; }
+.kidbar button.on { border-color: var(--accent); background: var(--accent); color: #fff; }
+:root[data-theme="teen"] .kidbar button.on { color: #071022; }
+.kidbar small { font-weight: 400; opacity: .8; }
+/* 密碼數字鍵盤 */
+.pinpad .dots { display: flex; justify-content: center; gap: 14px; margin: 14px 0 18px; }
+.pinpad .dots i { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--accent); }
+.pinpad .dots i.on { background: var(--accent); }
+.pinpad.shake .dots { animation: shake .35s; }
+@keyframes shake { 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
 .hide { display: none !important; }
 </style>
 </head>
@@ -138,7 +151,9 @@ label.f { display: block; margin: 10px 0 4px; font-weight: 700; font-size: .9em;
 'use strict';
 /* ========== storage ========== */
 const IS_BETA = location.pathname.includes('/beta/');
-const KEY = 'starjar.v1' + (IS_BETA ? '.beta' : ''); // 試玩版資料與正式版分開，不會弄亂孩子的紀錄
+const KEY = 'starjar.v1' + (IS_BETA ? '.beta' : ''); // v0.1–v0.2 單一孩子的舊資料（保留不刪，當備份）
+const FKEY = 'starjar.family.v2' + (IS_BETA ? '.beta' : ''); // v0.3 起：一個家庭、多個孩子
+// 試玩版資料與正式版分開，不會弄亂孩子的紀錄
 const uid = () => Math.random().toString(36).slice(2, 9);
 const pad = n => String(n).padStart(2, '0');
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -170,13 +185,36 @@ function seed() {
     logs: [], pending: []
   };
 }
-let db;
-try { db = JSON.parse(localStorage.getItem(KEY)) || seed(); } catch (e) { db = seed(); }
+const GRADES = [[1, '小一'], [2, '小二'], [3, '小三'], [4, '小四'], [5, '小五'], [6, '小六'], [7, '國一'], [8, '國二'], [9, '國三']];
+const gradeName = g => (GRADES.find(x => x[0] === +g) || [0, ''])[1];
 // 舊資料相容：新欄位用預設值補上，絕不覆蓋已有資料
-{ const d = seed(); db.settings = Object.assign(d.settings, db.settings); db.state = Object.assign(d.state, db.state);
-  ['tasks', 'goals', 'logs', 'pending'].forEach(k => { if (!Array.isArray(db[k])) db[k] = k === 'tasks' || k === 'goals' ? d[k] : []; }); }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
+function upgradeKid(p) {
+  const d = seed(); p.settings = Object.assign(d.settings, p.settings); p.state = Object.assign(d.state, p.state);
+  ['tasks', 'goals', 'logs', 'pending'].forEach(k => { if (!Array.isArray(p[k])) p[k] = k === 'tasks' || k === 'goals' ? d[k] : []; });
+  if (!p.id) p.id = uid();
+  return p;
+}
+function newKid(name, grade) {
+  const p = seed(); p.id = uid();
+  Object.assign(p.settings, { kidName: name, grade: +grade || 0, theme: +grade >= 7 ? 'teen' : 'kid', kidPin: '' });
+  return p;
+}
+// fam = 整個家庭（家長密碼、所有孩子）；db = 目前選中的孩子，其他程式都只看 db
+let fam, db;
+try { fam = JSON.parse(localStorage.getItem(FKEY)); } catch (e) {}
+if (!fam || !Array.isArray(fam.kids) || !fam.kids.length) {
+  let old = null; try { old = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  const first = old || seed(); // 舊版資料直接變成第一個孩子
+  fam = { pin: (old && old.settings && old.settings.pin) || '0000', kids: [first], cur: null };
+}
+fam.kids.forEach(upgradeKid);
+if (!fam.pin) fam.pin = '0000';
+db = fam.kids.find(k => k.id === fam.cur) || fam.kids[0]; fam.cur = db.id;
+function save() { try { localStorage.setItem(FKEY, JSON.stringify(fam)); } catch (e) {} }
 const S = () => db.settings, ST = () => db.state;
+const kidLabel = k => k.settings.kidName || `孩子 ${fam.kids.indexOf(k) + 1}`;
+function withKid(k, fn) { const prev = db; db = k; try { return fn(); } finally { db = prev; } }
+const allPending = () => fam.kids.reduce((a, k) => a + k.pending.length, 0);
 const unitMs = () => S().fast ? 1000 : 60000; // 測試模式：1 分鐘 = 1 秒
 function log(kind, o = {}) { db.logs.unshift(Object.assign({ id: uid(), ts: Date.now(), day: dayKey(), kind }, o)); }
 
@@ -300,15 +338,56 @@ let tab = 'home', parentUnlocked = false;
 const TABS = [['home', '🫙', '魔法瓶'], ['cal', '📅', '行事曆'], ['puzzle', '🧩', '益智'], ['log', '📜', '紀錄'], ['parent', '🔐', '家長']];
 function renderTabs() {
   $('#tabbar').innerHTML = TABS.map(([k, ic, n]) =>
-    `<button class="${tab === k ? 'on' : ''}" data-tab="${k}"><span>${ic}</span>${n}${k === 'parent' && db.pending.length ? `<i class="badge">${db.pending.length}</i>` : ''}</button>`).join('');
+    `<button class="${tab === k ? 'on' : ''}" data-tab="${k}"><span>${ic}</span>${n}${k === 'parent' && allPending() ? `<i class="badge">${allPending()}</i>` : ''}</button>`).join('');
   $('#tabbar').querySelectorAll('button').forEach(b => b.onclick = () => { tab = b.dataset.tab; if (tab !== 'parent') parentUnlocked = false; render(); });
 }
 function render() {
   document.documentElement.dataset.theme = S().theme;
-  housekeeping(); renderTabs();
+  fam.kids.forEach(k => withKid(k, housekeeping)); renderTabs();
   ({ home: renderHome, cal: renderCal, puzzle: renderPuzzle, log: renderLog, parent: renderParent })[tab]();
+  if (fam.kids.length > 1 && !(tab === 'parent' && !parentUnlocked)) $('#view').insertAdjacentHTML('afterbegin', kidbarHTML());
+  $('#view').querySelectorAll('[data-kid]').forEach(b => b.onclick = () => askSwitchKid(b.dataset.kid));
   if (IS_BETA) $('#view').insertAdjacentHTML('afterbegin', '<div class="pill gold" style="margin-bottom:10px">🧪 試玩版（beta）・資料與正式版分開</div>');
   window.scrollTo(0, 0);
+}
+
+/* ========== 多孩子：切換列與密碼鍵盤 ========== */
+function kidbarHTML() {
+  return `<div class="kidbar">${fam.kids.map(k => `<button class="${k === db ? 'on' : ''}" data-kid="${k.id}">${k.settings.theme === 'teen' ? '🌌' : '🦄'} ${esc(kidLabel(k))}${k.settings.grade ? ` <small>${gradeName(k.settings.grade)}</small>` : ''}${k.settings.kidPin ? ' 🔒' : ''}</button>`).join('')}</div>`;
+}
+// 數字鍵盤輸入密碼（不用系統鍵盤，iPad 上最穩，也適合小孩）
+function pinPad(el, { len = 4, hint = '', check }) {
+  let v = '';
+  const draw = () => {
+    el.innerHTML = `<div class="pinpad">${hint ? `<p class="muted">${hint}</p>` : ''}
+      <div class="dots">${Array.from({ length: Math.max(len, v.length) }, (_, i) => `<i class="${i < v.length ? 'on' : ''}"></i>`).join('')}</div>
+      <div class="keypad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, '⌫', 0, '✔'].map(k => `<button type="button" data-k="${k}">${k}</button>`).join('')}</div></div>`;
+    el.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+      const k = b.dataset.k;
+      if (k === '⌫') v = v.slice(0, -1);
+      else if (k === '✔') return submit();
+      else if (v.length < 8) { v += k; if (v.length === len) return submit(); } // 輸滿位數自動確認
+      draw();
+    });
+  };
+  const submit = () => {
+    if (!check(v, false)) { v = ''; draw(); const p = el.querySelector('.pinpad'); p.classList.add('shake'); setTimeout(() => p.classList.remove('shake'), 400); }
+  };
+  draw();
+}
+function switchKid(id) {
+  const k = fam.kids.find(x => x.id === id); if (!k || k === db) return;
+  if (ticketEl) { ticketEl.remove(); ticketEl = null; }
+  db = k; fam.cur = id; save(); render(); toast(`切換到 ${kidLabel(k)} ✨`);
+  if (ST().ticket) openTicket();
+}
+function askSwitchKid(id) {
+  const k = fam.kids.find(x => x.id === id); if (!k || k === db) return;
+  if (!k.settings.kidPin || parentUnlocked) return switchKid(id);
+  modal(`<h2 style="text-align:center">${esc(kidLabel(k))} 的魔法瓶</h2><div id="pp"></div>`, o => pinPad(o.querySelector('#pp'), {
+    len: k.settings.kidPin.length, hint: `請輸入 ${esc(kidLabel(k))} 的密碼（或家長密碼）`,
+    check: v => { const ok = v === k.settings.kidPin || v === fam.pin; if (ok) { o.remove(); switchKid(id); } else toast('密碼不對'); return ok; }
+  }));
 }
 
 /* ========== home ========== */
@@ -631,16 +710,18 @@ function renderCal() {
 }
 
 /* ========== puzzle: 閃電心算 ========== */
+// 依年級預設難度：小一二 → 低、小三四 → 中、小五以上 → 高
+const puzzleLevel = () => { const g = +S().grade || 0; return !g ? 2 : g <= 2 ? 1 : g <= 4 ? 2 : 3; };
 function renderPuzzle() {
   const left = S().puzzleDailyCap - puzzleToday();
   $('#view').innerHTML = `<div class="card" style="text-align:center">
     <h2>⚡ 閃電心算</h2><p class="muted">60 秒內答對越多越好。每答對 2 題 +1 星露，今天還能拿 <b>${Math.max(0, left)}</b> 星露。</p>
     <div class="row" style="justify-content:center;gap:8px;margin-bottom:12px">
-      ${[['1', '低年級'], ['2', '中年級'], ['3', '高年級/國中']].map(([v, n]) => `<button class="btn small ${v === '2' ? '' : 'ghost'}" data-lv="${v}">${n}</button>`).join('')}
+      ${[['1', '低年級'], ['2', '中年級'], ['3', '高年級/國中']].map(([v, n]) => `<button class="btn small ${+v === puzzleLevel() ? '' : 'ghost'}" data-lv="${v}">${n}</button>`).join('')}
     </div>
     <div id="qz"><button class="btn big" id="qs">開始挑戰</button></div>
     <p class="muted" style="margin-top:14px">更多小遊戲（華容道、記憶翻牌、24 點）會在之後版本加入</p></div>`;
-  let lv = 2;
+  let lv = puzzleLevel();
   $('#view').querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { lv = +b.dataset.lv; $('#view').querySelectorAll('[data-lv]').forEach(x => x.classList.toggle('ghost', x !== b)); });
   $('#qs').onclick = () => runQuiz(lv);
 }
@@ -711,20 +792,27 @@ function renderLog() {
 /* ========== parent ========== */
 function renderParent() {
   if (!parentUnlocked) {
-    $('#view').innerHTML = `<div class="card" style="max-width:420px;margin:30px auto;text-align:center"><h2>🔐 家長區</h2>
-      <p class="muted">請輸入家長密碼${S().pin === '0000' ? '（預設 0000，進去後請修改）' : ''}</p>
-      <input id="pin" type="password" inputmode="numeric" maxlength="8" style="text-align:center;font-size:1.6em;letter-spacing:8px">
-      <button class="btn big" style="margin-top:12px" id="pinok">進入</button></div>`;
-    const go = () => { if ($('#pin').value === S().pin) { parentUnlocked = true; render(); } else { toast('密碼不對'); $('#pin').value = ''; } };
-    $('#pinok').onclick = go; $('#pin').onkeydown = e => e.key === 'Enter' && go();
+    $('#view').innerHTML = `<div class="card" style="max-width:420px;margin:30px auto;text-align:center"><h2>🔐 家長區</h2><div id="pp"></div></div>`;
+    pinPad($('#pp'), {
+      len: fam.pin.length, hint: `請輸入家長密碼${fam.pin === '0000' ? '（預設 0000，進去後請修改）' : ''}`,
+      check: v => { const ok = v === fam.pin; if (ok) { parentUnlocked = true; render(); } else toast('密碼不對'); return ok; }
+    });
     return;
   }
   const set = S();
   const canEdit = !set.contractSigned || new Date().getDay() === set.ruleChangeDay;
+  const pend = fam.kids.flatMap(k => k.pending.map(p => ({ p, k })));
   $('#view').innerHTML = `
-  <div class="card"><div class="row between"><h2>👀 待核准（${db.pending.length}）</h2>${db.pending.length > 1 ? '<button class="btn small mint" id="appAll">全部核准</button>' : ''}</div>
-    ${db.pending.map(p => `<div class="task"><div class="t"><b>${esc(p.title)}</b><span class="muted">${fmtTime(p.ts)}・+${p.energy}${p.note ? '・「' + esc(p.note) + '」' : ''}</span></div>
+  <div class="card"><div class="row between"><h2>👀 待核准（${pend.length}）</h2>${pend.length > 1 ? '<button class="btn small mint" id="appAll">全部核准</button>' : ''}</div>
+    ${pend.map(({ p, k }) => `<div class="task"><div class="t"><b>${fam.kids.length > 1 ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}${esc(p.title)}</b><span class="muted">${fmtTime(p.ts)}・+${p.energy}${p.note ? '・「' + esc(p.note) + '」' : ''}</span></div>
       <button class="btn small mint" data-ap="${p.id}">核准</button><button class="btn small ghost" data-rj="${p.id}">退回</button></div>`).join('') || `<div class="muted">沒有待核准項目。超過 ${set.autoApproveHours} 小時未處理會自動核准。</div>`}
+  </div>
+
+  <div class="card"><div class="row between"><h2>👨‍👩‍👧‍👦 孩子帳號</h2><button class="btn small" id="addKid">＋ 新增孩子</button></div>
+    ${fam.kids.map(k => `<div class="task"><div class="ic">${k.settings.theme === 'teen' ? '🌌' : '🦄'}</div><div class="t"><b>${esc(kidLabel(k))}${k === db ? ' <span class="pill">設定中</span>' : ''}</b>
+      <span class="muted">${gradeName(k.settings.grade) || '未設定年級'}・${k.state.bottles} 瓶 ${k.state.energy} 星露・${k.settings.kidPin ? '🔒 有孩子密碼' : '沒有孩子密碼'}</span></div>
+      ${k === db ? '' : `<button class="btn small ghost" data-kid="${k.id}">切換</button>`}<button class="btn small ghost" data-kedit="${k.id}">編輯</button></div>`).join('')}
+    <p class="muted">下面的任務、目標、規則都是 <b>${esc(kidLabel(db))}</b> 的，每個孩子各自一套。家長密碼全家共用。</p>
   </div>
 
   <div class="card"><div class="row between"><h2>📋 任務管理</h2><button class="btn small" id="addTask">＋ 新增任務</button></div>
@@ -758,7 +846,7 @@ function renderParent() {
     <div class="row"><button class="btn small ${set.theme === 'kid' ? '' : 'ghost'}" data-theme="kid">🦄 童話魔法（國小）</button><button class="btn small ${set.theme === 'teen' ? '' : 'ghost'}" data-theme="teen">🌌 星空煉金（國中）</button></div>
     <label class="f">音效（加能量、封瓶、提醒聲）</label><button class="btn small ${set.sound ? 'mint' : 'ghost'}" id="snd">${set.sound ? '🔊 音效開啟中，點擊關閉' : '🔇 音效已關閉，點擊開啟'}</button>
     <div class="muted" style="margin-top:4px">iPad 側邊靜音鍵打開時聽不到音效</div>
-    <label class="f">變更家長密碼</label><div class="row"><input id="np" type="password" inputmode="numeric" placeholder="新密碼 4–8 位數字"><button class="btn small" id="setpin">儲存</button></div>
+    <label class="f">家長密碼（全家共用）</label><button class="btn small ghost" id="setpin">🔑 變更家長密碼</button>
     <label class="f">測試模式（1 分鐘縮短為 1 秒，方便試玩）</label><button class="btn small ${set.fast ? 'alt' : 'ghost'}" id="fast">${set.fast ? '已開啟，點擊關閉' : '開啟測試模式'}</button>
     <label class="f">手動加 / 扣能量（會留下紀錄）</label><div class="row"><input id="adj" type="number" placeholder="+10 或 -10"><input id="adjr" placeholder="原因"><button class="btn small" id="adjok">送出</button></div>
     <label class="f">資料</label><div class="row wrapflex"><button class="btn small ghost" id="exp">匯出備份</button><button class="btn small ghost" id="reset">重新開始（紀錄保留）</button></div>
@@ -769,7 +857,9 @@ function renderParent() {
   const V = $('#view');
   V.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => approve(b.dataset.ap, true));
   V.querySelectorAll('[data-rj]').forEach(b => b.onclick = () => approve(b.dataset.rj, false));
-  const all = $('#appAll'); if (all) all.onclick = () => { db.pending.slice().forEach(p => approve(p.id, true, true)); burst(); toast(`已全部核准 ✨`); render(); };
+  const all = $('#appAll'); if (all) all.onclick = () => { pend.forEach(({ p }) => approve(p.id, true, true)); burst(); toast(`已全部核准 ✨`); render(); };
+  $('#addKid').onclick = () => kidForm(null);
+  V.querySelectorAll('[data-kedit]').forEach(b => b.onclick = () => kidForm(fam.kids.find(k => k.id === b.dataset.kedit)));
   V.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('刪除這個任務？（過去紀錄會保留）')) { db.tasks = db.tasks.filter(t => t.id !== b.dataset.del); save(); render(); } });
   V.querySelectorAll('[data-gdel]').forEach(b => b.onclick = () => { if (confirm('刪除這個目標？')) { db.goals = db.goals.filter(g => g.id !== b.dataset.gdel); db.tasks.forEach(t => { if (t.goalId === b.dataset.gdel) delete t.goalId; }); save(); render(); } });
   V.querySelectorAll('[data-set]').forEach(el => el.onchange = () => {
@@ -778,15 +868,17 @@ function renderParent() {
   });
   V.querySelectorAll('[data-theme]').forEach(b => b.onclick = () => { set.theme = b.dataset.theme; save(); render(); });
   $('#addTask').onclick = taskForm; $('#addGoal').onclick = goalForm;
-  $('#setpin').onclick = () => { const v = $('#np').value; if (!/^\d{4,8}$/.test(v)) return toast('請輸入 4–8 位數字'); set.pin = v; save(); toast('密碼已更新'); $('#np').value = ''; };
+  $('#setpin').onclick = () => newPin('新的家長密碼（4 位數字）', v => { fam.pin = v; save(); toast('家長密碼已更新 🔑'); });
   $('#fast').onclick = () => { set.fast = !set.fast; save(); render(); };
   $('#adjok').onclick = () => { const n = parseInt($('#adj').value, 10); if (!n) return; const r = $('#adjr').value.trim() || '家長調整';
     if (n > 0) addEnergy(n, { title: '家長加分：' + r, source: 'parent' }); else { ST().energy = Math.max(0, ST().energy + n); log('note', { title: '家長扣分：' + r, energy: n }); save(); }
     toast('已記錄'); render(); };
-  $('#exp').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' })); a.download = `starjar-${dayKey()}.json`; a.click(); };
+  $('#exp').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(fam, null, 2)], { type: 'application/json' })); a.download = `starjar-${dayKey()}.json`; a.click(); };
   // 重新開始：任務、能量、規則回到預設，但紀錄不刪（產品承諾）
-  $('#reset').onclick = () => { if (confirm('確定重新開始？能量、瓶子、任務和規則會回到預設，魔法日誌會保留。')) {
-    const keep = db.logs; db = seed(); db.logs = keep; log('note', { title: '家長按了「重新開始」（之前的紀錄都保留）', energy: 0 }); save(); parentUnlocked = false; tab = 'home'; render(); } };
+  $('#reset').onclick = () => { if (confirm(`確定讓 ${kidLabel(db)} 重新開始？能量、瓶子、任務和規則會回到預設，魔法日誌會保留。`)) {
+    const old = db, fresh = newKid(old.settings.kidName, old.settings.grade);
+    fresh.id = old.id; fresh.settings.kidPin = old.settings.kidPin; fresh.logs = old.logs;
+    fam.kids[fam.kids.indexOf(old)] = fresh; db = fresh; log('note', { title: '家長按了「重新開始」（之前的紀錄都保留）', energy: 0 }); save(); parentUnlocked = false; tab = 'home'; render(); } };
   $('#snd').onclick = () => { set.sound = !set.sound; save(); if (set.sound) sfx('tap'); render(); };
   $('#lock').onclick = () => { parentUnlocked = false; tab = 'home'; render(); };
   const sg = $('#sign'); if (sg) sg.onclick = () => {
@@ -804,11 +896,55 @@ function renderParent() {
 }
 function numField(k, label) { return `<div><label class="f">${label}</label><input type="number" inputmode="numeric" data-set="${k}" value="${S()[k]}"></div>`; }
 function approve(id, ok, silent) {
-  const p = db.pending.find(x => x.id === id); if (!p) return;
-  db.pending = db.pending.filter(x => x.id !== id);
-  if (ok) { addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長核准）', source: 'parent' }); }
-  else { log('reject', { title: `「${p.title}」被退回，請再檢查一次`, energy: 0 }); save(); }
+  const k = fam.kids.find(x => x.pending.some(p => p.id === id)); if (!k) return;
+  withKid(k, () => { // 核准的能量加給送出的那個孩子
+    const p = db.pending.find(x => x.id === id);
+    db.pending = db.pending.filter(x => x.id !== id);
+    if (ok) { addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長核准）', source: 'parent' }); }
+    else { log('reject', { title: `「${p.title}」被退回，請再檢查一次`, energy: 0 }); save(); }
+  });
   if (!silent) { ok ? toast('已核准 ✨') : toast('已退回'); render(); }
+}
+// 設定新密碼：輸入兩次確認
+function newPin(title, done, allowClear) {
+  modal(`<h2 style="text-align:center">${title}</h2><div id="pp"></div>${allowClear ? '<button class="btn small ghost" id="clr" style="width:100%;margin-top:10px">不設密碼</button>' : ''}`, o => {
+    let first = '';
+    const step = () => pinPad(o.querySelector('#pp'), {
+      len: 4, hint: first ? '再輸入一次確認' : '請輸入 4 位數字',
+      check: v => {
+        if (!first) { first = v; step(); return true; }
+        if (v !== first) { toast('兩次不一樣，請重新輸入'); first = ''; step(); return true; }
+        o.remove(); done(v); return true;
+      }
+    });
+    step();
+    const c = o.querySelector('#clr'); if (c) c.onclick = () => { o.remove(); done(''); };
+  });
+}
+function kidForm(k) {
+  const s = k ? k.settings : { kidName: '', grade: 6, kidPin: '' };
+  modal(`<h2>${k ? '✏️ 編輯孩子' : '＋ 新增孩子'}</h2>
+    <label class="f">名字</label><input id="kname" value="${esc(s.kidName)}" placeholder="例：小安">
+    <label class="f">年級</label><select id="kgrade">${GRADES.map(([g, n]) => `<option value="${g}" ${+s.grade === g ? 'selected' : ''}>${n}</option>`).join('')}</select>
+    ${k ? '' : '<p class="muted">國中會自動用「星空煉金」主題，國小用「童話魔法」，之後可以改。每個孩子有自己的任務、規則和紀錄。</p>'}
+    ${k ? `<label class="f">孩子密碼（防止兄弟姊妹互用帳號）</label><button class="btn small ghost" id="kpin">${s.kidPin ? '🔒 變更或取消孩子密碼' : '🔓 設定孩子密碼'}</button>` : ''}
+    <button class="btn big" style="margin-top:14px" id="ok">${k ? '儲存' : '新增'}</button>
+    ${k && fam.kids.length > 1 ? '<button class="btn small ghost" style="width:100%;margin-top:10px;color:var(--danger);border-color:var(--danger)" id="kdel">刪除這個孩子</button>' : ''}`, o => {
+    o.querySelector('#ok').onclick = () => {
+      const name = o.querySelector('#kname').value.trim(); if (!name) return toast('請填名字');
+      const grade = +o.querySelector('#kgrade').value;
+      if (k) { const changed = k.settings.grade !== grade; k.settings.kidName = name; k.settings.grade = grade; if (changed) k.settings.theme = grade >= 7 ? 'teen' : 'kid'; }
+      else { const nk = newKid(name, grade); fam.kids.push(nk); withKid(nk, () => log('note', { title: `建立 ${name} 的魔法瓶`, energy: 0 })); }
+      save(); o.remove(); toast(k ? '已儲存' : `已新增 ${name}，記得一起簽家庭契約 ✍️`); render();
+    };
+    const kp = o.querySelector('#kpin'); if (kp) kp.onclick = () => { o.remove(); newPin(`${esc(kidLabel(k))} 的孩子密碼`, v => { k.settings.kidPin = v; save(); toast(v ? '孩子密碼已設定 🔒' : '已取消孩子密碼'); render(); }, true); };
+    const kd = o.querySelector('#kdel'); if (kd) kd.onclick = () => {
+      if (!confirm(`確定刪除 ${kidLabel(k)}？他的能量、任務和所有紀錄都會消失，建議先「匯出備份」。`)) return;
+      if (prompt(`請輸入「${kidLabel(k)}」確認刪除`) !== kidLabel(k)) return toast('名字不對，沒有刪除');
+      fam.kids = fam.kids.filter(x => x !== k); if (db === k) { db = fam.kids[0]; fam.cur = db.id; }
+      save(); o.remove(); toast('已刪除'); render();
+    };
+  });
 }
 function taskForm() {
   const icons = ['📚', '📖', '✏️', '🎹', '🎻', '🎸', '🥁', '🏃', '🎒', '🪥', '🧹', '🍽️', '🌱', '🧮', '🔤', '💤'];
