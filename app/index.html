@@ -34,6 +34,8 @@ body {
 }
 /* 只讓按鈕、瓶子等互動元素不可選取；不能設在 body，否則 iPad Safari 的輸入框會打不了字 */
 button, .tabbar, .bottle-wrap svg, .keypad, .kidbar, .pinpad { -webkit-user-select: none; user-select: none; }
+/* 關掉 iPad「點兩下放大」：否則快速連按同一顆鍵（例如密碼 0000）第二下會被吃掉 */
+html, body, button, label, input, select, textarea { touch-action: manipulation; }
 button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; -webkit-user-select: text; user-select: text; }
 .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
@@ -812,11 +814,13 @@ function renderLog() {
 /* ========== parent ========== */
 function renderParent() {
   if (!parentUnlocked) {
-    $('#view').innerHTML = `<div class="card" style="max-width:420px;margin:30px auto;text-align:center"><h2>🔐 家長區</h2><div id="pp"></div></div>`;
+    $('#view').innerHTML = `<div class="card" style="max-width:420px;margin:30px auto;text-align:center"><h2>🔐 家長區</h2><div id="pp"></div>
+      <button class="btn small ghost" style="margin-top:14px" id="forgot">忘記密碼？</button></div>`;
     pinPad($('#pp'), {
       len: fam.pin.length, hint: `請輸入家長密碼${fam.pin === '0000' ? '（預設 0000，進去後請修改）' : ''}`,
       check: v => { const ok = v === fam.pin; if (ok) { parentUnlocked = true; render(); } else toast('密碼不對'); return ok; }
     });
+    $('#forgot').onclick = forgotPin;
     return;
   }
   const set = S();
@@ -918,6 +922,32 @@ function renderParent() {
       });
   };
 }
+// 忘記家長密碼：按住 10 秒重設為 0000，並在每個孩子的魔法日誌留下紀錄（留痕，孩子偷用也看得出來）
+function forgotPin() {
+  modal(`<h2>🔑 忘記家長密碼</h2>
+    <p class="muted">按住下面的按鈕 <b>10 秒</b>，家長密碼會重設為 <b>0000</b>。<br>每個孩子的魔法日誌都會記錄「家長密碼被重設」，紀錄無法刪除。</p>
+    <div class="progress" style="margin:14px 0"><i id="hp" style="width:0"></i></div>
+    <button class="btn big alt" id="hold" style="touch-action:none">按住不放</button>`, o => {
+    const btn = o.querySelector('#hold'), bar = o.querySelector('#hp');
+    let t0 = 0, iv = 0;
+    const stop = () => { clearInterval(iv); iv = 0; if (bar.style.width !== '100%') { bar.style.width = '0'; btn.textContent = '按住不放'; } };
+    btn.onpointerdown = e => {
+      e.preventDefault(); t0 = Date.now(); clearInterval(iv);
+      iv = setInterval(() => {
+        const p = Math.min(1, (Date.now() - t0) / 10000);
+        bar.style.width = p * 100 + '%'; btn.textContent = `繼續按住… ${Math.ceil(10 - p * 10)}`;
+        if (p >= 1) {
+          clearInterval(iv); iv = 0; fam.pin = '0000';
+          fam.kids.forEach(k => withKid(k, () => log('note', { title: '⚠️ 家長密碼被重設為 0000', energy: 0 })));
+          save(); o.remove(); toast('家長密碼已重設為 0000，進去後請修改'); render();
+        }
+      }, 100);
+    };
+    btn.onpointerup = btn.onpointerleave = btn.onpointercancel = stop;
+    btn.oncontextmenu = e => e.preventDefault(); // 長按不要跳出選單
+  });
+}
+
 /* ========== 備份與還原 ========== */
 // 資料只存在這台裝置，所以要定期匯出到 iCloud 雲碟等地方；還原前會自動保留一份目前資料，可以反悔
 const RKEY = FKEY + '.before-restore';
