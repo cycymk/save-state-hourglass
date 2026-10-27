@@ -142,6 +142,17 @@ label.f { display: block; margin: 10px 0 4px; font-weight: 700; font-size: .9em;
 .pinpad.shake .dots { animation: shake .35s; }
 @keyframes shake { 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
 .hide { display: none !important; }
+/* 拍照證明 */
+.photo-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 12px; flex: none; background: var(--line); cursor: pointer; }
+.photo-big { display: block; width: 100%; max-height: 60vh; object-fit: contain; border-radius: 12px; margin: 10px 0; background: var(--glass); }
+/* 數字華容道 */
+.seg { display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.slide { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 8px; width: min(100%, 360px); aspect-ratio: 1; margin: 14px auto 6px; }
+.slide button, .slide i { border-radius: 14px; }
+.slide button { background: var(--accent); color: #fff; font-size: 1.7em; font-weight: 800; box-shadow: 0 4px 0 rgba(0,0,0,.15); min-height: 48px; }
+.slide button.ok { background: var(--mint); }
+:root[data-theme="teen"] .slide button { color: #071022; }
+.slide i { background: var(--glass); border: 2px dashed var(--line); }
 </style>
 </head>
 <body>
@@ -263,7 +274,7 @@ function housekeeping() {
   db.pending.slice().forEach(p => {
     if (Date.now() - p.ts > hrs) {
       const t = db.tasks.find(x => x.id === p.taskId);
-      db.pending = db.pending.filter(x => x.id !== p.id);
+      db.pending = db.pending.filter(x => x.id !== p.id); if (p.photo) photoDel(p.id);
       addEnergy(p.energy, { taskId: p.taskId, title: (t ? t.title : p.title) + '（逾時自動核准）', source: 'auto-approve' });
     }
   });
@@ -553,18 +564,81 @@ function doTask(id) {
   if (ST().ticket) return toast('遊戲時間中不能做任務喔，先結束遊戲券');
   if (t.type === 'focus' || t.type === 'practice') return startFocus(t);
   if (t.verify === 'parent') {
-    modal(`<h2>${t.icon} ${esc(t.title)}</h2><p class="muted">寫一句話給爸媽（例如：做了第幾頁、哪裡不會）</p>
-      <textarea id="note" rows="3" placeholder="例：p.12–15 寫完了，第 7 題不太會"></textarea>
+    modal(`<h2>${t.icon} ${esc(t.title)}</h2><p class="muted">拍張照片、寫一句話給爸媽（例如：做了第幾頁、哪裡不會），都可以不填</p>
+      <label class="btn ghost" style="display:inline-flex;align-items:center">📷 <span id="phl">拍照 / 選照片</span><input type="file" accept="image/*" id="ph" style="display:none"></label>
+      <img id="phv" class="photo-big hide" alt="要給爸媽看的照片">
+      <textarea id="note" rows="3" placeholder="例：p.12–15 寫完了，第 7 題不太會" style="margin-top:10px"></textarea>
       <div class="row" style="margin-top:12px"><button class="btn" id="ok">送出給家長</button></div>`, o => {
-      o.querySelector('#ok').onclick = () => {
-        db.pending.push({ id: uid(), ts: Date.now(), day: dayKey(), taskId: t.id, title: t.title, energy: taskReward(t), note: o.querySelector('#note').value.trim() });
-        log('note', { title: `送出「${t.title}」等待家長核准`, energy: 0 }); save(); o.remove(); sfx('sent'); toast('已送出！家長核准後就會加能量 ✨'); render();
+      let blob = null;
+      o.querySelector('#ph').onchange = async e => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        try { blob = await shrinkPhoto(f); } catch (err) { return toast('這張照片讀不出來，換一張試試'); }
+        const im = o.querySelector('#phv'); URL.revokeObjectURL(im.src); im.src = URL.createObjectURL(blob); im.classList.remove('hide');
+        o.querySelector('#phl').textContent = '重拍 / 換一張';
+      };
+      o.querySelector('#ok').onclick = async e => {
+        e.currentTarget.disabled = true; // 存照片要一點時間，避免連按送出兩次
+        const id = uid(); let photo = false;
+        if (blob) { try { await photoPut(id, blob); photo = true; } catch (err) { toast('照片存不下來（可能是空間不足），先只送出文字'); } }
+        db.pending.push({ id, ts: Date.now(), day: dayKey(), taskId: t.id, title: t.title, energy: taskReward(t), note: o.querySelector('#note').value.trim(), photo });
+        log('note', { title: `送出「${t.title}」等待家長核准${photo ? '（附照片）' : ''}`, energy: 0 }); save(); o.remove(); sfx('sent'); toast('已送出！家長核准後就會加能量 ✨'); render();
       };
     });
     return;
   }
   const res = addEnergy(taskReward(t), { taskId: t.id, title: t.title, source: 'self' });
   celebrate(res, t.title); render();
+}
+
+/* ========== 拍照證明 ========== */
+// 照片只存在這台裝置的 IndexedDB（不上傳、不放進 localStorage）；家長核准或退回後就刪掉
+const PDB = 'starjar-photos' + (IS_BETA ? '-beta' : '');
+let pdbP = null;
+function photoDB() {
+  return pdbP = pdbP || new Promise((res, rej) => {
+    const r = indexedDB.open(PDB, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('p');
+    r.onsuccess = () => res(r.result); r.onerror = () => { pdbP = null; rej(r.error); };
+  });
+}
+async function photoOp(mode, fn) {
+  const d = await photoDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction('p', mode), r = fn(tx.objectStore('p'));
+    tx.oncomplete = () => res(r.result); tx.onerror = () => rej(tx.error);
+  });
+}
+const photoPut = (id, blob) => photoOp('readwrite', s => s.put(blob, id));
+const photoGet = id => photoOp('readonly', s => s.get(id));
+const photoDel = id => photoOp('readwrite', s => s.delete(id)).catch(() => {});
+// 清掉已經沒有對應待核准項目的照片（例如還原備份之後）
+async function photoSweep() {
+  const keep = new Set(fam.kids.flatMap(k => k.pending.map(p => p.id)));
+  try { (await photoOp('readonly', s => s.getAllKeys()) || []).filter(k => !keep.has(k)).forEach(photoDel); } catch (e) {}
+}
+// 縮成長邊 1280 的 JPEG，一張大約 100–200KB
+function shrinkPhoto(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1280 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      c.toBlob(b => b ? res(b) : rej(new Error('photo')), 'image/jpeg', .75);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('photo')); };
+    img.src = url;
+  });
+}
+let photoURLs = [];
+function showPhotos(V) {
+  photoURLs.forEach(u => URL.revokeObjectURL(u)); photoURLs = [];
+  V.querySelectorAll('[data-ph]').forEach(async im => {
+    let b = null; try { b = await photoGet(im.dataset.ph); } catch (e) {}
+    if (!b) { const s = document.createElement('span'); s.className = 'muted'; s.textContent = '📷 照片不在這台裝置'; im.replaceWith(s); return; }
+    const u = URL.createObjectURL(b); photoURLs.push(u); im.src = u;
+    im.onclick = () => modal(`<img class="photo-big" src="${u}" alt="孩子拍的照片"><button class="btn big" id="cl">關閉</button>`, o => o.querySelector('#cl').onclick = () => o.remove());
+  });
 }
 
 /* ========== focus / practice mode ========== */
@@ -734,18 +808,22 @@ function renderCal() {
 /* ========== puzzle: 閃電心算 ========== */
 // 依年級預設難度：小一二 → 低、小三四 → 中、小五以上 → 高
 const puzzleLevel = () => { const g = +S().grade || 0; return !g ? 2 : g <= 2 ? 1 : g <= 4 ? 2 : 3; };
+let puzzleGame = 'quiz', puzzleLv = 0; // 目前選的難度，「再玩一次」會用它
 function renderPuzzle() {
-  const left = S().puzzleDailyCap - puzzleToday();
+  const left = Math.max(0, S().puzzleDailyCap - puzzleToday());
+  const quiz = puzzleGame === 'quiz';
+  const opts = quiz ? [['1', '低年級'], ['2', '中年級'], ['3', '高年級/國中']] : [['3', '3×3 入門'], ['4', '4×4 挑戰']];
+  const lv = puzzleLv = quiz ? puzzleLevel() : slideSize();
   $('#view').innerHTML = `<div class="card" style="text-align:center">
-    <h2>⚡ 閃電心算</h2><p class="muted">60 秒內答對越多越好。每答對 2 題 +1 星露，今天還能拿 <b>${Math.max(0, left)}</b> 星露。</p>
-    <div class="row" style="justify-content:center;gap:8px;margin-bottom:12px">
-      ${[['1', '低年級'], ['2', '中年級'], ['3', '高年級/國中']].map(([v, n]) => `<button class="btn small ${+v === puzzleLevel() ? '' : 'ghost'}" data-lv="${v}">${n}</button>`).join('')}
-    </div>
+    <div class="seg">${[['quiz', '⚡ 閃電心算'], ['slide', '🔢 數字華容道']].map(([k, n]) => `<button class="btn small ${k === puzzleGame ? 'alt' : 'ghost'}" data-game="${k}">${n}</button>`).join('')}</div>
+    ${quiz ? `<h2>⚡ 閃電心算</h2><p class="muted">60 秒內答對越多越好。每答對 2 題 +1 星露，今天還能拿 <b>${left}</b> 星露。</p>`
+      : `<h2>🔢 數字華容道</h2><p class="muted">點空格旁邊的數字把它滑過去，排成 1、2、3…，空格在右下角就完成了。完成 3×3 +${SLIDE_REWARD[3]}、4×4 +${SLIDE_REWARD[4]} 星露，今天還能拿 <b>${left}</b> 星露。</p>`}
+    <div class="seg">${opts.map(([v, n]) => `<button class="btn small ${+v === lv ? '' : 'ghost'}" data-lv="${v}">${n}</button>`).join('')}</div>
     <div id="qz"><button class="btn big" id="qs">開始挑戰</button></div>
-    <p class="muted" style="margin-top:14px">更多小遊戲（華容道、記憶翻牌、24 點）會在之後版本加入</p></div>`;
-  let lv = puzzleLevel();
-  $('#view').querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { lv = +b.dataset.lv; $('#view').querySelectorAll('[data-lv]').forEach(x => x.classList.toggle('ghost', x !== b)); });
-  $('#qs').onclick = () => runQuiz(lv);
+    <p class="muted" style="margin-top:14px">更多小遊戲（記憶翻牌、24 點）會在之後版本加入</p></div>`;
+  $('#view').querySelectorAll('[data-game]').forEach(b => b.onclick = () => { puzzleGame = b.dataset.game; render(); });
+  $('#view').querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { puzzleLv = +b.dataset.lv; $('#view').querySelectorAll('[data-lv]').forEach(x => x.classList.toggle('ghost', x !== b)); });
+  $('#qs').onclick = () => quiz ? runQuiz(puzzleLv) : runSlide(puzzleLv);
 }
 function makeQ(lv) {
   const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -786,9 +864,57 @@ function runQuiz(lv) {
       if (got > 0) { const res = addEnergy(got, { title: `閃電心算 答對 ${right} 題`, source: 'puzzle' }); celebrate(res, '閃電心算'); msg += ` 獲得 ${res.gained} 星露！`; }
       else msg += can <= 0 ? ' 今天益智能量已滿，可以繼續玩當作放鬆～' : ' 再挑戰一次吧！';
       box.innerHTML = `<div class="quiz-q">🎉</div><p>${msg}</p><button class="btn" id="qs2">再玩一次</button>`;
-      $('#qs2').onclick = () => runQuiz(lv);
+      $('#qs2').onclick = () => runQuiz(puzzleLv);
     }
   }, 250);
+}
+
+/* ========== puzzle: 數字華容道 ========== */
+const SLIDE_REWARD = { 3: 4, 4: 8 };
+const slideSize = () => (+S().grade || 0) >= 5 ? 4 : 3; // 小五以上預設 4×4
+const isSolved = b => b.every((v, i) => v === (i + 1) % b.length); // 0 = 空格，在最後一格
+const slideNear = (z, n) => [z - n, z + n, z % n ? z - 1 : -1, z % n < n - 1 ? z + 1 : -1].filter(x => x >= 0 && x < n * n);
+// 從排好的盤面隨機滑動來打亂，所以一定解得開
+function shuffleBoard(n) {
+  const b = Array.from({ length: n * n }, (_, i) => (i + 1) % (n * n));
+  let z = n * n - 1, prev = -1;
+  for (let i = 0; i < n * n * 25; i++) {
+    const nb = slideNear(z, n).filter(x => x !== prev), m = nb[Math.floor(Math.random() * nb.length)];
+    b[z] = b[m]; b[m] = 0; prev = z; z = m;
+  }
+  return isSolved(b) ? shuffleBoard(n) : b;
+}
+function runSlide(n) {
+  let b = shuffleBoard(n), moves = 0; const t0 = Date.now();
+  const box = $('#qz');
+  const draw = () => {
+    box.innerHTML = `<div class="row between"><span class="pill">步數 ${moves}</span><button class="btn small ghost" id="sr">🔀 重新打亂</button></div>
+      <div class="slide" style="--n:${n}">${b.map((v, i) => v ? `<button data-i="${i}" class="${v === i + 1 ? 'ok' : ''}" aria-label="${v}">${v}</button>` : '<i></i>').join('')}</div>
+      <p class="muted">綠色＝已經在正確位置。同一排的數字可以一次滑好幾格。</p>`;
+    $('#sr').onclick = () => runSlide(n);
+    box.querySelectorAll('[data-i]').forEach(el => el.onclick = () => tap(+el.dataset.i));
+  };
+  // 點的格子和空格同一排或同一列，就把中間的數字一起推過去
+  const tap = i => {
+    let z = b.indexOf(0);
+    const sameRow = Math.floor(i / n) === Math.floor(z / n), sameCol = i % n === z % n;
+    if (!sameRow && !sameCol) return sfx('soft');
+    const step = sameRow ? (i > z ? 1 : -1) : (i > z ? n : -n);
+    while (z !== i) { b[z] = b[z + step]; z += step; }
+    b[i] = 0; moves++; sfx('tap');
+    if (isSolved(b)) return win();
+    draw();
+  };
+  const win = () => {
+    const can = Math.max(0, S().puzzleDailyCap - puzzleToday());
+    const got = Math.min(can, SLIDE_REWARD[n]);
+    let msg = `${n}×${n} 完成！用了 ${moves} 步、${fmt(Date.now() - t0)}。`;
+    if (got > 0) { const res = addEnergy(got, { title: `數字華容道 ${n}×${n} 完成（${moves} 步）`, source: 'puzzle' }); celebrate(res, '數字華容道'); msg += ` 獲得 ${res.gained} 星露！`; }
+    else msg += ' 今天益智能量已滿，可以繼續玩當作放鬆～';
+    box.innerHTML = `<div class="quiz-q">🎉</div><p>${msg}</p><button class="btn" id="qs2">再玩一次</button>`;
+    $('#qs2').onclick = () => runSlide(puzzleLv);
+  };
+  draw();
 }
 
 /* ========== logs ========== */
@@ -828,7 +954,7 @@ function renderParent() {
   const pend = fam.kids.flatMap(k => k.pending.map(p => ({ p, k })));
   $('#view').innerHTML = `
   <div class="card"><div class="row between"><h2>👀 待核准（${pend.length}）</h2>${pend.length > 1 ? '<button class="btn small mint" id="appAll">全部核准</button>' : ''}</div>
-    ${pend.map(({ p, k }) => `<div class="task"><div class="t"><b>${fam.kids.length > 1 ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}${esc(p.title)}</b><span class="muted">${fmtTime(p.ts)}・+${p.energy}${p.note ? '・「' + esc(p.note) + '」' : ''}</span></div>
+    ${pend.map(({ p, k }) => `<div class="task">${p.photo ? `<img class="photo-thumb" data-ph="${p.id}" alt="照片">` : ''}<div class="t"><b>${fam.kids.length > 1 ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}${esc(p.title)}</b><span class="muted">${fmtTime(p.ts)}・+${p.energy}${p.note ? '・「' + esc(p.note) + '」' : ''}</span></div>
       <button class="btn small mint" data-ap="${p.id}">核准</button><button class="btn small ghost" data-rj="${p.id}">退回</button></div>`).join('') || `<div class="muted">沒有待核准項目。超過 ${set.autoApproveHours} 小時未處理會自動核准。</div>`}
   </div>
 
@@ -881,6 +1007,7 @@ function renderParent() {
   <button class="btn ghost" id="lock">🔒 離開家長區</button>`;
 
   const V = $('#view');
+  showPhotos(V);
   V.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => approve(b.dataset.ap, true));
   V.querySelectorAll('[data-rj]').forEach(b => b.onclick = () => approve(b.dataset.rj, false));
   const all = $('#appAll'); if (all) all.onclick = () => { pend.forEach(({ p }) => approve(p.id, true, true)); burst(); toast(`已全部核准 ✨`); render(); };
@@ -1016,7 +1143,7 @@ function approve(id, ok, silent) {
   const k = fam.kids.find(x => x.pending.some(p => p.id === id)); if (!k) return;
   withKid(k, () => { // 核准的能量加給送出的那個孩子
     const p = db.pending.find(x => x.id === id);
-    db.pending = db.pending.filter(x => x.id !== id);
+    db.pending = db.pending.filter(x => x.id !== id); if (p.photo) photoDel(id);
     if (ok) { addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長核准）', source: 'parent' }); }
     else { log('reject', { title: `「${p.title}」被退回，請再檢查一次`, energy: 0 }); save(); }
   });
@@ -1119,6 +1246,7 @@ setInterval(() => {
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 render();
 if (ST().ticket) openTicket();
+photoSweep();
 </script>
 </body>
 </html>
