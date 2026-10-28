@@ -274,8 +274,8 @@ function housekeeping() {
   db.pending.slice().forEach(p => {
     if (Date.now() - p.ts > hrs) {
       const t = db.tasks.find(x => x.id === p.taskId);
-      db.pending = db.pending.filter(x => x.id !== p.id); if (p.photo) photoDel(p.id);
-      addEnergy(p.energy, { taskId: p.taskId, title: (t ? t.title : p.title) + '（逾時自動核准）', source: 'auto-approve' });
+      db.pending = db.pending.filter(x => x.id !== p.id);
+      addEnergy(p.energy, { taskId: p.taskId, title: (t ? t.title : p.title) + '（逾時自動核准）', source: 'auto-approve', photo: p.photo ? p.id : undefined });
     }
   });
   const tk = ST().ticket;
@@ -591,7 +591,9 @@ function doTask(id) {
 }
 
 /* ========== 拍照證明 ========== */
-// 照片只存在這台裝置的 IndexedDB（不上傳、不放進 localStorage）；家長核准或退回後就刪掉
+// 照片只存在這台裝置的 IndexedDB（不上傳、不放進 localStorage）；家長核准或退回後再保留 7 天，可在魔法日誌回顧
+const PHOTO_KEEP_MS = 7 * 864e5;
+const photoFresh = l => l.photo && Date.now() - l.ts < PHOTO_KEEP_MS;
 const PDB = 'starjar-photos' + (IS_BETA ? '-beta' : '');
 let pdbP = null;
 function photoDB() {
@@ -611,9 +613,9 @@ async function photoOp(mode, fn) {
 const photoPut = (id, blob) => photoOp('readwrite', s => s.put(blob, id));
 const photoGet = id => photoOp('readonly', s => s.get(id));
 const photoDel = id => photoOp('readwrite', s => s.delete(id)).catch(() => {});
-// 清掉已經沒有對應待核准項目的照片（例如還原備份之後）
+// 清掉不再需要的照片：不是待核准、也不是 7 天內日誌裡的照片
 async function photoSweep() {
-  const keep = new Set(fam.kids.flatMap(k => k.pending.map(p => p.id)));
+  const keep = new Set(fam.kids.flatMap(k => k.pending.map(p => p.id).concat(k.logs.filter(photoFresh).map(l => l.photo))));
   try { (await photoOp('readonly', s => s.getAllKeys()) || []).filter(k => !keep.has(k)).forEach(photoDel); } catch (e) {}
 }
 // 縮成長邊 1280 的 JPEG，一張大約 100–200KB
@@ -932,9 +934,10 @@ function renderLog() {
       <div class="muted" style="font-size:.75em">${WEEK[new Date(s.k + 'T00:00').getDay()]}</div></div>`).join('')}</div>
     <div class="muted"><span style="color:var(--accent)">■</span> 獲得星露　<span style="color:var(--accent2)">■</span> 遊戲分鐘</div>
   </div>
-  <div class="card"><h2>📜 魔法日誌</h2><p class="muted">所有紀錄都不能刪除，口說無憑，紀錄為證。</p>
-    ${db.logs.slice(0, 200).map(l => `<div class="log"><span class="when">${fmtTime(l.ts)}</span><span>${icon[l.kind] || '•'} ${esc(l.title || '')}${l.energy ? ` <b>${l.energy > 0 ? '+' : ''}${l.energy}</b>` : ''}</span></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
+  <div class="card"><h2>📜 魔法日誌</h2><p class="muted">所有紀錄都不能刪除，口說無憑，紀錄為證。附的照片會保留 7 天，點縮圖可以放大。</p>
+    ${db.logs.slice(0, 200).map(l => `<div class="log"><span class="when">${fmtTime(l.ts)}</span>${photoFresh(l) ? `<img class="photo-thumb" data-ph="${l.photo}" alt="照片">` : ''}<span>${icon[l.kind] || '•'} ${esc(l.title || '')}${l.energy ? ` <b>${l.energy > 0 ? '+' : ''}${l.energy}</b>` : ''}</span></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
   </div>`;
+  showPhotos($('#view'));
 }
 
 /* ========== parent ========== */
@@ -1143,9 +1146,10 @@ function approve(id, ok, silent) {
   const k = fam.kids.find(x => x.pending.some(p => p.id === id)); if (!k) return;
   withKid(k, () => { // 核准的能量加給送出的那個孩子
     const p = db.pending.find(x => x.id === id);
-    db.pending = db.pending.filter(x => x.id !== id); if (p.photo) photoDel(id);
-    if (ok) { addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長核准）', source: 'parent' }); }
-    else { log('reject', { title: `「${p.title}」被退回，請再檢查一次`, energy: 0 }); save(); }
+    db.pending = db.pending.filter(x => x.id !== id);
+    const photo = p.photo ? id : undefined; // 照片跟著日誌再留 7 天
+    if (ok) { addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長核准）', source: 'parent', photo }); }
+    else { log('reject', { title: `「${p.title}」被退回，請再檢查一次`, energy: 0, photo }); save(); }
   });
   if (!silent) { ok ? toast('已核准 ✨') : toast('已退回'); render(); }
 }
