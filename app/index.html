@@ -54,6 +54,7 @@ h2 { font-size: 1.25em; }
 .btn.alt { background: var(--accent2); }
 .btn.mint { background: var(--mint); }
 .btn.ghost { background: transparent; color: var(--accent); border: 2px solid var(--accent); box-shadow: none; }
+:root[data-theme="teen"] .btn.ghost { color: var(--accent); } /* 國中主題：外框按鈕原本是深色字，在深色背景上看不到 */
 .btn.small { padding: 8px 14px; min-height: 40px; font-size: .9em; }
 .btn.big { font-size: 1.2em; padding: 16px 26px; width: 100%; }
 .btn[disabled] { opacity: .45; }
@@ -153,6 +154,17 @@ label.f { display: block; margin: 10px 0 4px; font-weight: 700; font-size: .9em;
 .slide button.ok { background: var(--mint); }
 :root[data-theme="teen"] .slide button { color: #071022; }
 .slide i { background: var(--glass); border: 2px dashed var(--line); }
+/* 記憶翻牌 */
+.mem { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: min(100%, 420px); margin: 14px auto 6px; }
+.mem button { aspect-ratio: 3 / 4; min-height: 56px; border-radius: 14px; background: var(--accent); color: #fff; font-size: 1.4em; font-weight: 800; box-shadow: 0 4px 0 rgba(0,0,0,.15); padding: 2px; overflow-wrap: anywhere; line-height: 1.1; }
+.mem button.up { background: var(--card); color: var(--ink); border: 3px solid var(--accent); box-shadow: none; animation: flip .25s ease-out; }
+.mem button.got { background: var(--mint); color: #06281f; border: 0; box-shadow: none; }
+.mem button.word { font-size: 1.05em; }
+.mem button.big { font-size: 2em; }
+:root[data-theme="teen"] .mem button { color: #071022; }
+:root[data-theme="teen"] .mem button.up { color: var(--ink); }
+@keyframes flip { from { transform: scaleX(.1); } }
+@media (prefers-reduced-motion: reduce) { .mem button.up { animation: none; } }
 /* 週報與徽章 */
 .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0; }
 @media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
@@ -239,6 +251,7 @@ fam.kids.forEach(upgradeKid);
 if (!fam.pin) fam.pin = '0000';
 db = fam.kids.find(k => k.id === fam.cur) || fam.kids[0]; fam.cur = db.id;
 function save() { try { localStorage.setItem(FKEY, JSON.stringify(fam)); } catch (e) {} }
+save(); // 補好的欄位（例如孩子 id）馬上存起來，行事曆匯出的 UID 才會固定
 const S = () => db.settings, ST = () => db.state;
 const kidLabel = k => k.settings.kidName || `孩子 ${fam.kids.indexOf(k) + 1}`;
 function withKid(k, fn) { const prev = db; db = k; try { return fn(); } finally { db = prev; } }
@@ -827,7 +840,68 @@ function renderCal() {
       const earned = db.logs.filter(l => l.day === k && l.kind === 'earn').reduce((a, l) => a + l.energy, 0);
       return `<div class="day ${k === dayKey() ? 'today' : ''}"><div class="row between"><b>${d.getMonth() + 1}/${d.getDate()}（${WEEK[d.getDay()]}）${k === dayKey() ? '・今天' : ''}${d.getDay() === S().ruleChangeDay ? '・🏠 家庭會議日' : ''}</b>${earned ? `<span class="pill">+${earned}</span>` : ''}</div>
       ${due.map(g => `<div>🚩 ${esc(g.title)} 截止</div>`).join('')}</div>`; }).join('')}
+  </div>
+  <div class="card"><h2>📤 加入 iPad／手機行事曆</h2>
+    <p class="muted">把${fam.kids.length > 1 ? '全家孩子的' : ''}目標截止日（前一天提醒）和每週的家庭會議日，匯出成行事曆檔（.ics），可以加到 iPad 內建「行事曆」、iCloud 或 Google 行事曆。只會產生一個檔案在這台裝置，不會上傳到任何地方。</p>
+    <div class="row wrapflex"><button class="btn small" id="icsAdd">📅 下載行事曆檔</button><button class="btn small ghost" id="icsShare">📤 分享／存到檔案</button></div>
+    <p class="muted" style="margin-top:8px">iPad：下載後點開檔案，選「加入全部」就會出現在「行事曆」App。如果沒有反應，改按「分享／存到檔案」存到「檔案」App，再從那裡點開。<br>之後新增或修改目標，再匯出一次就好；同一個目標會更新，不會重複出現。</p>
   </div>`;
+  $('#icsAdd').onclick = () => exportICS(false);
+  $('#icsShare').onclick = () => exportICS(true);
+}
+
+/* ========== .ics 行事曆匯出 ========== */
+// 目標截止日（全天、前一天提醒）＋每週家庭會議日；UID 固定，重新匯入會更新同一個事件
+const icsEsc = s => String(s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const icsDate = k => k.replace(/-/g, '');
+// 每行最多 75 bytes（中文一字 3 bytes），超過要折行，續行開頭加一個空白
+function icsFold(line) {
+  const out = []; let cur = '', bytes = 0;
+  for (const ch of line) {
+    const b = new TextEncoder().encode(ch).length;
+    if (bytes + b > (out.length ? 74 : 75)) { out.push(cur); cur = ''; bytes = 0; }
+    cur += ch; bytes += b;
+  }
+  out.push(cur);
+  return out.join('\r\n ');
+}
+function buildICS() {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const multi = fam.kids.length > 1, L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//StarJar//魔法能量瓶//ZH-TW', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:魔法能量瓶'];
+  const ev = (uid, start, end, title, desc, extra = [], alarm) => {
+    L.push('BEGIN:VEVENT', `UID:${uid}@starjar`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${start}`, `DTEND;VALUE=DATE:${end}`, `SUMMARY:${icsEsc(title)}`, `DESCRIPTION:${icsEsc(desc)}`, 'TRANSP:TRANSPARENT', ...extra);
+    if (alarm) L.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEsc(alarm)}`, 'TRIGGER;RELATED=START:-PT6H', 'END:VALARM'); // 全天事件：前一天 18:00 提醒
+    L.push('END:VEVENT');
+  };
+  let n = 0;
+  fam.kids.forEach(k => k.goals.forEach(g => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(g.due || '') || daysLeft(g.due) < 0) return; // 已結束的不匯出
+    const who = multi ? `${kidLabel(k)}：` : '';
+    ev(`goal-${k.id}-${g.id}`, icsDate(g.due), icsDate(shiftDay(g.due, 1)), `🚩 ${who}${g.title} 截止`,
+      `${g.kind === 'count' ? `目標：完成 ${g.target} 次` : `目標：每天練 ${g.target} 分鐘`}（來自魔法能量瓶）`, [], `明天是「${who}${g.title}」的截止日`);
+    n++;
+  }));
+  // 家庭會議日：同一天的孩子合併成一個每週事件
+  const byDay = {};
+  fam.kids.forEach(k => (byDay[k.settings.ruleChangeDay] = byDay[k.settings.ruleChangeDay] || []).push(kidLabel(k)));
+  const BYDAY = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+  Object.keys(byDay).forEach(w => {
+    let d = new Date(); d.setDate(d.getDate() + (+w - d.getDay() + 7) % 7); const k = dayKey(d);
+    ev(`meeting-${w}`, icsDate(k), icsDate(shiftDay(k, 1)), `🏠 家庭會議日${multi ? `（${byDay[w].join('、')}）` : ''}`,
+      '一起看魔法能量瓶的週報和徽章，聊聊下週的規則。規則只在今天可以修改。', [`RRULE:FREQ=WEEKLY;BYDAY=${BYDAY[w]}`]);
+  });
+  L.push('END:VCALENDAR');
+  return { text: L.map(icsFold).join('\r\n') + '\r\n', goals: n };
+}
+async function exportICS(asFile) {
+  const { text, goals } = buildICS();
+  const name = `魔法能量瓶行事曆-${dayKey()}.ics`;
+  const file = new File([text], name, { type: 'text/calendar' });
+  try {
+    if (asFile && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: name });
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); } // iPad Safari 下載後點檔案會出現「加入全部」
+  } catch (e) { if (e && e.name === 'AbortError') return toast('已取消'); }
+  toast(`📅 已匯出 ${goals} 個目標截止日＋家庭會議日`, 3000);
 }
 
 /* ========== puzzle: 閃電心算 ========== */
@@ -836,19 +910,25 @@ const puzzleLevel = () => { const g = +S().grade || 0; return !g ? 2 : g <= 2 ? 
 let puzzleGame = 'quiz', puzzleLv = 0; // 目前選的難度，「再玩一次」會用它
 function renderPuzzle() {
   const left = Math.max(0, S().puzzleDailyCap - puzzleToday());
-  const quiz = puzzleGame === 'quiz';
-  const opts = quiz ? [['1', '低年級'], ['2', '中年級'], ['3', '高年級/國中']] : [['3', '3×3 入門'], ['4', '4×4 挑戰']];
-  const lv = puzzleLv = quiz ? puzzleLevel() : slideSize();
+  const G = {
+    quiz: { n: '⚡ 閃電心算', opts: [['1', '低年級'], ['2', '中年級'], ['3', '高年級/國中']], lv: puzzleLevel, run: runQuiz,
+      d: '60 秒內答對越多越好。每答對 2 題 +1 星露' },
+    slide: { n: '🔢 數字華容道', opts: [['3', '3×3 入門'], ['4', '4×4 挑戰']], lv: slideSize, run: runSlide,
+      d: `點空格旁邊的數字把它滑過去，排成 1、2、3…，空格在右下角就完成了。完成 3×3 +${SLIDE_REWARD[3]}、4×4 +${SLIDE_REWARD[4]} 星露` },
+    mem: { n: '🃏 記憶翻牌', opts: [['1', '🐾 圖案配對'], ['2', '🔤 英文配對']], lv: memLevel, run: runMem,
+      d: `一次翻兩張，一樣的就配對成功，全部配完就完成了。英文配對是把單字和圖案配在一起。完成圖案 +${MEM_REWARD[1]}、英文 +${MEM_REWARD[2]} 星露` }
+  };
+  const g = G[puzzleGame] || G.quiz;
+  const lv = puzzleLv = g.lv();
   $('#view').innerHTML = `<div class="card" style="text-align:center">
-    <div class="seg">${[['quiz', '⚡ 閃電心算'], ['slide', '🔢 數字華容道']].map(([k, n]) => `<button class="btn small ${k === puzzleGame ? 'alt' : 'ghost'}" data-game="${k}">${n}</button>`).join('')}</div>
-    ${quiz ? `<h2>⚡ 閃電心算</h2><p class="muted">60 秒內答對越多越好。每答對 2 題 +1 星露，今天還能拿 <b>${left}</b> 星露。</p>`
-      : `<h2>🔢 數字華容道</h2><p class="muted">點空格旁邊的數字把它滑過去，排成 1、2、3…，空格在右下角就完成了。完成 3×3 +${SLIDE_REWARD[3]}、4×4 +${SLIDE_REWARD[4]} 星露，今天還能拿 <b>${left}</b> 星露。</p>`}
-    <div class="seg">${opts.map(([v, n]) => `<button class="btn small ${+v === lv ? '' : 'ghost'}" data-lv="${v}">${n}</button>`).join('')}</div>
+    <div class="seg">${Object.keys(G).map(k => `<button class="btn small ${G[k] === g ? 'alt' : 'ghost'}" data-game="${k}">${G[k].n}</button>`).join('')}</div>
+    <h2>${g.n}</h2><p class="muted">${g.d}，今天還能拿 <b>${left}</b> 星露。</p>
+    <div class="seg">${g.opts.map(([v, n]) => `<button class="btn small ${+v === lv ? '' : 'ghost'}" data-lv="${v}">${n}</button>`).join('')}</div>
     <div id="qz"><button class="btn big" id="qs">開始挑戰</button></div>
-    <p class="muted" style="margin-top:14px">更多小遊戲（記憶翻牌、24 點）會在之後版本加入</p></div>`;
+    <p class="muted" style="margin-top:14px">更多小遊戲（24 點、成語接龍）會在之後版本加入</p></div>`;
   $('#view').querySelectorAll('[data-game]').forEach(b => b.onclick = () => { puzzleGame = b.dataset.game; render(); });
   $('#view').querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { puzzleLv = +b.dataset.lv; $('#view').querySelectorAll('[data-lv]').forEach(x => x.classList.toggle('ghost', x !== b)); });
-  $('#qs').onclick = () => quiz ? runQuiz(puzzleLv) : runSlide(puzzleLv);
+  $('#qs').onclick = () => g.run(puzzleLv);
 }
 function makeQ(lv) {
   const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -938,6 +1018,58 @@ function runSlide(n) {
     else msg += ' 今天益智能量已滿，可以繼續玩當作放鬆～';
     box.innerHTML = `<div class="quiz-q">🎉</div><p>${msg}</p><button class="btn" id="qs2">再玩一次</button>`;
     $('#qs2').onclick = () => runSlide(puzzleLv);
+  };
+  draw();
+}
+
+/* ========== puzzle: 記憶翻牌 ========== */
+// 1 = 圖案配對（12 張、6 對）；2 = 英文配對（16 張、8 對，單字配圖案）
+const MEM_REWARD = { 1: 4, 2: 8 };
+const memLevel = () => (+S().grade || 0) >= 3 ? 2 : 1; // 小三開始學英文，預設英文配對
+const MEM_PICS = ['🐶', '🐱', '🐰', '🦊', '🐼', '🐸', '🐧', '🐳', '🍎', '🍉', '🌻', '🎈', '🚗', '⭐', '🌈', '🍩'];
+const MEM_WORDS = [['cat', '🐱'], ['dog', '🐶'], ['fish', '🐟'], ['bird', '🐦'], ['bear', '🐻'], ['pig', '🐷'], ['apple', '🍎'], ['egg', '🥚'],
+  ['milk', '🥛'], ['cake', '🍰'], ['sun', '☀️'], ['moon', '🌙'], ['star', '⭐'], ['tree', '🌳'], ['book', '📖'], ['car', '🚗'], ['bus', '🚌'], ['ball', '⚽']];
+const shuffled = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function runMem(lv) {
+  const eng = lv === 2;
+  const pairs = shuffled(eng ? MEM_WORDS : MEM_PICS).slice(0, eng ? 8 : 6);
+  // 每張牌：k = 配對代號，face = 顯示內容
+  const cards = shuffled(pairs.flatMap((p, k) => eng ? [{ k, face: p[0], word: true }, { k, face: p[1] }] : [{ k, face: p }, { k, face: p }]));
+  let open = [], tries = 0, got = 0, busy = false; const t0 = Date.now();
+  const box = $('#qz');
+  const draw = () => {
+    box.innerHTML = `<div class="row between"><span class="pill">配對 ${got} / ${pairs.length}・翻了 ${tries} 次</span><button class="btn small ghost" id="mr">🔀 重新洗牌</button></div>
+      <div class="mem">${cards.map((c, i) => c.got || c.up
+        ? `<button data-i="${i}" class="${c.got ? 'got' : 'up'} ${c.word ? 'word' : 'big'}" aria-label="${esc(c.face)}">${esc(c.face)}</button>`
+        : `<button data-i="${i}" aria-label="蓋著的牌">✦</button>`).join('')}</div>
+      <p class="muted">${eng ? '把英文單字和它的圖案配成一對，例如 cat ↔ 🐱' : '記住每張牌的位置，翻出兩張一樣的'}</p>`;
+    $('#mr').onclick = () => runMem(lv);
+    box.querySelectorAll('[data-i]').forEach(el => el.onclick = () => flip(+el.dataset.i));
+  };
+  const flip = i => {
+    const c = cards[i];
+    if (busy || c.up || c.got) return;
+    c.up = true; open.push(c); sfx('tap');
+    if (open.length < 2) return draw();
+    tries++;
+    const [a, b] = open; open = [];
+    if (a.k === b.k) {
+      a.got = b.got = true; got++; sfx('right');
+      if (got === pairs.length) return win();
+      return draw();
+    }
+    busy = true; draw(); // 沒配對到：讓孩子看一下再蓋回去
+    setTimeout(() => { a.up = b.up = false; busy = false; if (box.isConnected && $('#qz') === box) draw(); }, 900);
+  };
+  const win = () => {
+    const can = Math.max(0, S().puzzleDailyCap - puzzleToday());
+    const g = Math.min(can, MEM_REWARD[lv]);
+    let msg = `${eng ? '英文配對' : '圖案配對'}完成！翻了 ${tries} 次、${fmt(Date.now() - t0)}。`;
+    if (tries <= pairs.length + 2) msg += ' 記憶力超強 🧠';
+    if (g > 0) { const res = addEnergy(g, { title: `記憶翻牌 ${eng ? '英文' : '圖案'}配對完成（翻 ${tries} 次）`, source: 'puzzle' }); celebrate(res, '記憶翻牌'); msg += ` 獲得 ${res.gained} 星露！`; }
+    else msg += ' 今天益智能量已滿，可以繼續玩當作放鬆～';
+    box.innerHTML = `<div class="quiz-q">🎉</div><p>${msg}</p><button class="btn" id="qs2">再玩一次</button>`;
+    $('#qs2').onclick = () => runMem(puzzleLv);
   };
   draw();
 }
