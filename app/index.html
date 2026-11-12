@@ -39,6 +39,7 @@ html, body, button, label, input, select, textarea { touch-action: manipulation;
 button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; -webkit-user-select: text; user-select: text; }
 .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+#view { padding-bottom: calc(96px + env(safe-area-inset-bottom)); } /* 最下面的按鈕不要被分頁列蓋住 */
 h1, h2, h3 { margin: 0 0 10px; }
 h2 { font-size: 1.25em; }
 .muted { color: var(--muted); font-size: .9em; }
@@ -129,6 +130,7 @@ h2 { font-size: 1.25em; }
 .day.today { border-color: var(--accent2); }
 .log { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: .92em; }
 .log .when { color: var(--muted); width: 92px; flex: none; }
+.lognote { display: inline-block; margin-top: 4px; padding: 4px 8px; border-left: 3px solid var(--gold); color: var(--muted); font-size: .92em; }
 label.f { display: block; margin: 10px 0 4px; font-weight: 700; font-size: .9em; }
 /* 孩子切換列 */
 .kidbar { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 12px; }
@@ -222,7 +224,7 @@ function seed() {
       { id: g1, title: '段考前完成數學習作 ×5', due: addDays(25), kind: 'count', target: 5, created: dayKey() },
       { id: g2, title: '音樂比賽：每天練琴 60 分', due: addDays(30), kind: 'daily', target: 60, created: dayKey() }
     ],
-    logs: [], pending: []
+    logs: [], pending: [], appeals: []
   };
 }
 const GRADES = [[1, '小一'], [2, '小二'], [3, '小三'], [4, '小四'], [5, '小五'], [6, '小六'], [7, '國一'], [8, '國二'], [9, '國三']];
@@ -230,7 +232,7 @@ const gradeName = g => (GRADES.find(x => x[0] === +g) || [0, ''])[1];
 // 舊資料相容：新欄位用預設值補上，絕不覆蓋已有資料
 function upgradeKid(p) {
   const d = seed(); p.settings = Object.assign(d.settings, p.settings); p.state = Object.assign(d.state, p.state);
-  ['tasks', 'goals', 'logs', 'pending'].forEach(k => { if (!Array.isArray(p[k])) p[k] = k === 'tasks' || k === 'goals' ? d[k] : []; });
+  ['tasks', 'goals', 'logs', 'pending', 'appeals'].forEach(k => { if (!Array.isArray(p[k])) p[k] = k === 'tasks' || k === 'goals' ? d[k] : []; });
   if (!p.id) p.id = uid();
   return p;
 }
@@ -255,7 +257,7 @@ save(); // 補好的欄位（例如孩子 id）馬上存起來，行事曆匯出
 const S = () => db.settings, ST = () => db.state;
 const kidLabel = k => k.settings.kidName || `孩子 ${fam.kids.indexOf(k) + 1}`;
 function withKid(k, fn) { const prev = db; db = k; try { return fn(); } finally { db = prev; } }
-const allPending = () => fam.kids.reduce((a, k) => a + k.pending.length, 0);
+const allPending = () => fam.kids.reduce((a, k) => a + k.pending.length + k.appeals.filter(x => !x.status).length, 0); // 待核准＋還沒回覆的申訴
 const unitMs = () => S().fast ? 1000 : 60000; // 測試模式：1 分鐘 = 1 秒
 function log(kind, o = {}) { db.logs.unshift(Object.assign({ id: uid(), ts: Date.now(), day: dayKey(), kind }, o)); }
 
@@ -1129,6 +1131,60 @@ function checkBadges() {
   return fresh;
 }
 
+/* ========== 申訴信箱 ========== */
+// 每週（週一起算）可以寫 1 次申訴給家長，用完就沒了；家長回覆「接受」或「維持原規則」，全部留在紀錄裡
+const APPEALS_PER_WEEK = 1;
+const appealsLeft = () => Math.max(0, APPEALS_PER_WEEK - db.appeals.filter(a => a.day >= weekStart()).length);
+function appealCardHTML() {
+  const left = appealsLeft(), recent = db.appeals.slice(0, 5);
+  const st = a => !a.status ? '<span class="pill">⏳ 等家長回覆</span>' : a.status === 'ok' ? '<span class="pill" style="color:var(--mint)">👍 家長接受</span>' : '<span class="pill">🤝 維持原規則</span>';
+  return `<div class="card"><div class="row between"><h2>📮 申訴信箱</h2><span class="pill gold">本週還有 ${left} 次</span></div>
+    <p class="muted">覺得哪裡不公平？可以寫下理由給爸媽。每週 ${APPEALS_PER_WEEK} 次，每週一重新計算，要好好想清楚再寫喔。</p>
+    <button class="btn ${left ? '' : 'ghost'}" id="appeal" ${left ? '' : 'disabled'}>${left ? '✍️ 寫申訴' : '本週的申訴機會用完了'}</button>
+    ${recent.map(a => `<div class="log" style="flex-wrap:wrap"><span class="when">${fmtTime(a.ts)}</span><span style="flex:1;min-width:160px">「${esc(a.text)}」 ${st(a)}${a.reply ? `<br><span class="muted">家長回覆：${esc(a.reply)}</span>` : ''}</span></div>`).join('')}
+  </div>`;
+}
+function writeAppeal() {
+  if (!appealsLeft()) return toast('本週的申訴機會用完了，下週一會再有');
+  modal(`<h2>📮 寫申訴給爸媽</h2><p class="muted">說說發生了什麼事、你希望怎麼處理。送出後就算用掉本週的機會。</p>
+    <textarea id="atx" rows="4" maxlength="300" placeholder="例：今天停電，專注計時被中斷了，希望可以補給我星露"></textarea>
+    <div class="row" style="margin-top:12px"><button class="btn" id="ok">送出申訴</button><button class="btn ghost" id="no">再想想</button></div>`, o => {
+    o.querySelector('#no').onclick = () => o.remove();
+    o.querySelector('#ok').onclick = () => {
+      const text = o.querySelector('#atx').value.trim();
+      if (text.length < 4) return toast('多寫一點理由，爸媽才看得懂喔');
+      if (!appealsLeft()) { o.remove(); return toast('本週的申訴機會用完了'); }
+      db.appeals.unshift({ id: uid(), ts: Date.now(), day: dayKey(), text, status: '', reply: '' });
+      log('note', { title: `📮 送出申訴：「${text}」`, energy: 0 }); save(); o.remove(); sfx('sent'); toast('已送給爸媽，等他們回覆 📮'); render();
+    };
+  });
+}
+// 家長回覆：接受或維持原規則（要補星露請用「手動加分」，會另外留紀錄）
+function answerAppeal(id, ok, reply) {
+  const k = fam.kids.find(x => x.appeals.some(a => a.id === id)); if (!k) return;
+  withKid(k, () => {
+    const a = db.appeals.find(x => x.id === id); if (a.status) return;
+    a.status = ok ? 'ok' : 'no'; a.reply = reply; a.replyTs = Date.now();
+    log('note', { title: `📮 家長回覆申訴：${ok ? '👍 接受' : '🤝 維持原規則'}${reply ? `「${reply}」` : ''}`, energy: 0 }); save();
+  });
+  toast('已回覆'); render();
+}
+// 家長加註更正：紀錄不能改也不能刪，只能在下面加一段說明（同樣不能刪）
+function annotateLog(id) {
+  const l = db.logs.find(x => x.id === id); if (!l) return;
+  modal(`<h2>✏️ 家長加註</h2><p class="muted">原本的紀錄：${fmtTime(l.ts)}「${esc(l.title || '')}」</p>
+    <p class="muted">原紀錄不會被修改。加註會顯示在這筆紀錄下面，孩子看得到，加了就不能刪除。</p>
+    <textarea id="ntx" rows="3" maxlength="200" placeholder="例：那天其實有練琴，是計時器沒存到，已手動補 30 星露"></textarea>
+    <div class="row" style="margin-top:12px"><button class="btn" id="ok">加上註記</button><button class="btn ghost" id="no">取消</button></div>`, o => {
+    o.querySelector('#no').onclick = () => o.remove();
+    o.querySelector('#ok').onclick = () => {
+      const text = o.querySelector('#ntx').value.trim(); if (!text) return toast('請寫下註記內容');
+      (l.notes = l.notes || []).push({ ts: Date.now(), text }); save(); o.remove(); toast('已加註 ✏️'); render();
+    };
+  });
+}
+const logNotesHTML = l => (l.notes || []).map(n => `<br><span class="lognote">✏️ 家長加註（${fmtTime(n.ts)}）：${esc(n.text)}</span>`).join('');
+
 /* ========== logs ========== */
 let weekOff = 0;
 function renderLog() {
@@ -1165,10 +1221,12 @@ function renderLog() {
     <div class="badges">${BADGES.map(b => { const [v, t] = b.p(x), on = got[b.id];
       return `<div class="bdg ${on ? 'on' : 'lock'}"><span class="bi">${b.ic}</span><b>${b.n}</b><small>${b.d}</small><small>${on ? '✔ ' + fmtTime(on).split(' ')[0] + ' 獲得' : `${Math.min(v, t)} / ${t}`}</small></div>`; }).join('')}</div>
   </div>
-  <div class="card"><h2>📜 魔法日誌</h2><p class="muted">所有紀錄都不能刪除，口說無憑，紀錄為證。附的照片會保留 7 天，點縮圖可以放大。</p>
-    ${db.logs.slice(0, 200).map(l => `<div class="log"><span class="when">${fmtTime(l.ts)}</span>${photoFresh(l) ? `<img class="photo-thumb" data-ph="${l.photo}" alt="照片">` : ''}<span>${icon[l.kind] || '•'} ${esc(l.title || '')}${l.energy ? ` <b>${l.energy > 0 ? '+' : ''}${l.energy}</b>` : ''}</span></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
+  ${appealCardHTML()}
+  <div class="card"><h2>📜 魔法日誌</h2><p class="muted">所有紀錄都不能刪除，口說無憑，紀錄為證；只有家長能在下面加註更正。附的照片會保留 7 天，點縮圖可以放大。</p>
+    ${db.logs.slice(0, 200).map(l => `<div class="log"><span class="when">${fmtTime(l.ts)}</span>${photoFresh(l) ? `<img class="photo-thumb" data-ph="${l.photo}" alt="照片">` : ''}<span>${icon[l.kind] || '•'} ${esc(l.title || '')}${l.energy ? ` <b>${l.energy > 0 ? '+' : ''}${l.energy}</b>` : ''}${logNotesHTML(l)}</span></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
   </div>`;
   showPhotos($('#view'));
+  const ab = $('#appeal'); if (ab) ab.onclick = writeAppeal;
   $('#view').querySelectorAll('[data-wk]').forEach(b => b.onclick = () => { weekOff = Math.min(0, Math.max(-12, weekOff + +b.dataset.wk)); render(); });
 }
 
@@ -1187,10 +1245,24 @@ function renderParent() {
   const set = S();
   const canEdit = !set.contractSigned || new Date().getDay() === set.ruleChangeDay;
   const pend = fam.kids.flatMap(k => k.pending.map(p => ({ p, k })));
+  const apps = fam.kids.flatMap(k => k.appeals.filter(a => !a.status).map(a => ({ a, k })));
   $('#view').innerHTML = `
   <div class="card"><div class="row between"><h2>👀 待核准（${pend.length}）</h2>${pend.length > 1 ? '<button class="btn small mint" id="appAll">全部核准</button>' : ''}</div>
     ${pend.map(({ p, k }) => `<div class="task">${p.photo ? `<img class="photo-thumb" data-ph="${p.id}" alt="照片">` : ''}<div class="t"><b>${fam.kids.length > 1 ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}${esc(p.title)}</b><span class="muted">${fmtTime(p.ts)}・+${p.energy}${p.note ? '・「' + esc(p.note) + '」' : ''}</span></div>
       <button class="btn small mint" data-ap="${p.id}">核准</button><button class="btn small ghost" data-rj="${p.id}">退回</button></div>`).join('') || `<div class="muted">沒有待核准項目。超過 ${set.autoApproveHours} 小時未處理會自動核准。</div>`}
+  </div>
+
+  <div class="card"><h2>📮 申訴（${apps.length}）</h2>
+    ${apps.map(({ a, k }) => `<div class="task" style="flex-wrap:wrap"><div class="t" style="min-width:200px"><b>${fam.kids.length > 1 ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}「${esc(a.text)}」</b><span class="muted">${fmtTime(a.ts)}</span>
+      <input data-arp="${a.id}" maxlength="120" placeholder="回覆一句話（可不填）" style="margin-top:6px"></div>
+      <button class="btn small mint" data-aok="${a.id}">👍 接受</button><button class="btn small ghost" data-ano="${a.id}">🤝 維持原規則</button></div>`).join('') || '<div class="muted">沒有待回覆的申訴。孩子每週可以申訴 1 次。</div>'}
+    ${apps.length ? '<p class="muted">接受後如果要補星露，請用下面「其他設定」的手動加分，會另外留紀錄。</p>' : ''}
+  </div>
+
+  <div class="card"><h2>✏️ 日誌加註更正（${esc(kidLabel(db))}）</h2>
+    <p class="muted">紀錄不能修改或刪除。發現記錯了，可以在那筆紀錄下面加一段說明，孩子在「紀錄」頁看得到。</p>
+    ${db.logs.slice(0, 15).map(l => `<div class="task"><div class="t"><b style="font-weight:600">${esc(l.title || '')}${l.energy ? ` ${l.energy > 0 ? '+' : ''}${l.energy}` : ''}</b><span class="muted">${fmtTime(l.ts)}${l.notes && l.notes.length ? `・已加註 ${l.notes.length} 次` : ''}</span></div>
+      <button class="btn small ghost" data-note="${l.id}">加註</button></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
   </div>
 
   <div class="card"><div class="row between"><h2>👨‍👩‍👧‍👦 孩子帳號</h2><button class="btn small" id="addKid">＋ 新增孩子</button></div>
@@ -1245,6 +1317,9 @@ function renderParent() {
   showPhotos(V);
   V.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => approve(b.dataset.ap, true));
   V.querySelectorAll('[data-rj]').forEach(b => b.onclick = () => approve(b.dataset.rj, false));
+  V.querySelectorAll('[data-aok],[data-ano]').forEach(b => b.onclick = () => { const id = b.dataset.aok || b.dataset.ano, r = V.querySelector(`[data-arp="${id}"]`);
+    answerAppeal(id, !!b.dataset.aok, r ? r.value.trim() : ''); });
+  V.querySelectorAll('[data-note]').forEach(b => b.onclick = () => annotateLog(b.dataset.note));
   const all = $('#appAll'); if (all) all.onclick = () => { pend.forEach(({ p }) => approve(p.id, true, true)); burst(); toast(`已全部核准 ✨`); render(); };
   $('#addKid').onclick = () => kidForm(null);
   V.querySelectorAll('[data-kedit]').forEach(b => b.onclick = () => kidForm(fam.kids.find(k => k.id === b.dataset.kedit)));
@@ -1267,7 +1342,7 @@ function renderParent() {
   // 重新開始：任務、能量、規則回到預設，但紀錄不刪（產品承諾）
   $('#reset').onclick = () => { if (confirm(`確定讓 ${kidLabel(db)} 重新開始？能量、瓶子、任務和規則會回到預設，魔法日誌會保留。`)) {
     const old = db, fresh = newKid(old.settings.kidName, old.settings.grade);
-    fresh.id = old.id; fresh.settings.kidPin = old.settings.kidPin; fresh.logs = old.logs; fresh.state.badges = old.state.badges;
+    fresh.id = old.id; fresh.settings.kidPin = old.settings.kidPin; fresh.logs = old.logs; fresh.appeals = old.appeals; fresh.state.badges = old.state.badges;
     fam.kids[fam.kids.indexOf(old)] = fresh; db = fresh; log('note', { title: '家長按了「重新開始」（之前的紀錄都保留）', energy: 0 }); save(); parentUnlocked = false; tab = 'home'; render(); } };
   $('#snd').onclick = () => { set.sound = !set.sound; save(); if (set.sound) sfx('tap'); render(); };
   $('#lock').onclick = () => { parentUnlocked = false; tab = 'home'; render(); };
