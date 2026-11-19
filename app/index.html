@@ -181,6 +181,16 @@ label.f { display: block; margin: 10px 0 4px; font-weight: 700; font-size: .9em;
 .bdg small { display: block; color: var(--muted); font-size: .72em; margin-top: 2px; }
 .bdg.on { border-color: var(--gold); }
 .bdg.lock .bi { filter: grayscale(1); opacity: .35; }
+/* 露米衣櫥 */
+.wopts { display: flex; flex-wrap: wrap; gap: 8px; }
+.wopt { min-height: 48px; padding: 8px 12px; border-radius: 14px; background: var(--glass); border: 2px solid var(--line); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.wopt.on { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.wopt[disabled] { opacity: .5; }
+.wopt small { font-weight: 400; color: var(--muted); }
+.wopt .sw { width: 22px; height: 22px; border-radius: 50%; flex: none; border: 2px solid var(--line); }
+.wprev { display: block; width: 150px; height: auto; margin: 4px auto 8px; }
+.lv { display: inline-block; margin: -4px 0 8px; padding: 4px 12px; border-radius: 999px; font-size: .85em; font-weight: 800; background: var(--glass); color: var(--accent); border: 2px solid var(--line); }
+:root[data-theme="teen"] .lv { color: var(--gold); border-color: rgba(255,209,102,.4); letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,209,102,.35); }
 </style>
 </head>
 <body>
@@ -211,7 +221,7 @@ function seed() {
       puzzleDailyCap: 20, ruleChangeDay: 0, onTimeBonus: 5, fast: false, contractSigned: null,
       autoApproveHours: 24, sound: true
     },
-    state: { energy: 0, bottles: 0, trust: 100, streakOnTime: 0, lastSessionEnd: 0, ticket: null, appealsWeek: '', badges: {} },
+    state: { energy: 0, bottles: 0, trust: 100, streakOnTime: 0, lastSessionEnd: 0, ticket: null, appealsWeek: '', badges: {}, look: { color: '', acc: '', title: '' } },
     tasks: [
       { id: uid(), title: '寫作業（專注）', icon: '📚', type: 'focus', verify: 'auto', energy: 25, minutes: 25, required: true },
       { id: uid(), title: '鋼琴練習', icon: '🎹', type: 'practice', verify: 'auto', energy: 30, minutes: 30, required: false, goalId: g2 },
@@ -486,7 +496,7 @@ function lumiFace(mood) {
     yay: `<path d="M79 185 L86 178 L93 185" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M107 185 L114 178 L121 185" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>${cheek}${openMouth}`,
     play: `<g class="blink"><circle cx="86" cy="182" r="6" fill="${ink}"/><circle cx="114" cy="182" r="6" fill="${ink}"/></g>${cheek}${smile}`
   };
-  return faces[mood] || faces.calm;
+  return (faces[mood] || faces.calm) + accSVG(curLook().acc);
 }
 function bottleSVG(pct) {
   const y = 250 - pct * 175;
@@ -557,8 +567,9 @@ function renderHome() {
   ${new Date().getDay() === set.ruleChangeDay ? `<div class="card row between"><div><b>🏠 今天是家庭會議日</b><div class="muted">一起看看這週的週報和徽章，聊聊下週的規則吧</div></div><button class="btn small" id="toWeek">📊 看週報</button></div>` : ''}
   ${tk ? `<div class="card row between" style="background:var(--mint);color:#06281f"><div><b>🎮 遊戲券使用中</b><div>剩下 <b id="tkLeft">${fmt(tk.end - Date.now())}</b></div></div><button class="btn small" id="tkOpen">打開計時</button></div>` : ''}
   <div class="grid2">
-    <div class="card bottle-wrap">
+    <div class="card bottle-wrap" style="${lookVars()}">
       <h2>${name}魔法瓶</h2>
+      <div><span class="lv">Lv.${lumiLevel().lv} ${S().theme === 'teen' ? '✦' : '⭐'} ${esc(curTitle())}</span></div>
       ${bottleSVG(Math.min(1, pct))}
       <div><span class="energy-num">${s.energy}</span> / ${set.energyPerBottle} 星露</div>
       <div class="shelf">${Array.from({ length: set.maxBottles }, (_, i) => `<div class="mini ${i < s.bottles ? 'full' : ''}"></div>`).join('')}</div>
@@ -567,7 +578,7 @@ function renderHome() {
       <div class="muted">🔥 連續 ${dayStreak()} 天做任務・⏰ 準時下線連續 ${s.streakOnTime} 次</div>
       <div style="margin-top:12px"><button class="btn big alt" id="redeem" ${blockers.length ? 'disabled' : ''}>🎮 用 1 瓶換 ${set.minutesPerBottle} 分鐘</button></div>
       ${blockers.length ? `<div class="muted" style="margin-top:8px;text-align:left">${blockers.map(b => '・' + esc(b)).join('<br>')}</div>` : ''}
-      <div style="margin-top:10px"><button class="btn small ghost" id="altReward">🎁 換「非 3C」獎勵</button></div>
+      <div class="row wrapflex" style="margin-top:10px;justify-content:center"><button class="btn small ghost" id="altReward">🎁 換「非 3C」獎勵</button><button class="btn small ghost" id="wardrobe">🎨 露米衣櫥</button></div>
     </div>
     <div class="card">
       <div class="row between"><h2>今日任務</h2><span class="muted">週${WEEK[new Date().getDay()]}・${dayKey()}</span></div>
@@ -580,6 +591,7 @@ function renderHome() {
   const bp = Math.min(1, pct); $('#lumi').onclick = () => lumiPoke(bp);
   if (Date.now() - lumiYay < 2500) lumiSettle(bp);
   $('#altReward').onclick = altReward;
+  $('#wardrobe').onclick = openWardrobe;
   if (tk) $('#tkOpen').onclick = openTicket;
   const tw = $('#toWeek'); if (tw) tw.onclick = () => { tab = 'log'; weekOff = 0; render(); };
 }
@@ -1131,6 +1143,79 @@ function checkBadges() {
   return fresh;
 }
 
+/* ========== 露米衣櫥（角色自訂） ========== */
+// 收集徽章解鎖瓶子顏色、配件和稱號；不花星露，不影響遊戲時間的換算
+const LOOK_COLORS = [
+  { id: '', n: '主題原色', need: 0 },
+  { id: 'berry', n: '🍓 莓果', c: ['#ff5c8a', '#ffc2d6'], need: 0 },
+  { id: 'ocean', n: '🌊 海洋', c: ['#2f8bff', '#8fe9ff'], need: 0 },
+  { id: 'forest', n: '🍀 森林', c: ['#22b573', '#b5f5c8'], need: 2 },
+  { id: 'sunset', n: '🍊 夕陽', c: ['#ff7a3d', '#ffd166'], need: 4 },
+  { id: 'nebula', n: '🌌 星雲', c: ['#5b3cff', '#ff5cd6'], need: 6 },
+  { id: 'moon', n: '🌙 月光', c: ['#5d6fa3', '#c9d4f2'], need: 9 }
+];
+const LOOK_ACCS = [
+  { id: '', n: '不戴', need: 0 }, { id: 'bow', n: '🎀 蝴蝶結', need: 0 }, { id: 'phones', n: '🎧 耳機', need: 0 },
+  { id: 'clip', n: '⭐ 星星髮夾', need: 1 }, { id: 'shades', n: '🕶️ 墨鏡', need: 3 }, { id: 'hat', n: '🧙 巫師帽', need: 5 }, { id: 'crown', n: '👑 皇冠', need: 8 }
+];
+// 等級：累積星露每滿 1 瓶升 1 級；稱號分國小／國中兩種說法
+const TITLES = [[1, '星露小芽', '見習星靈師'], [3, '閃亮小幫手', '星露學徒'], [6, '魔法小達人', '星塵術士'], [10, '瓶子守護者', '星空煉金師'], [20, '彩虹魔法師', '銀河賢者'], [35, '傳說大魔法師', '傳說觀星者']];
+const curLook = () => Object.assign({ color: '', acc: '', title: '' }, ST().look);
+const badgeCount = () => Object.keys(ST().badges).filter(k => BADGES.some(b => b.id === k)).length;
+function lumiLevel() {
+  const dew = db.logs.filter(l => l.kind === 'earn').reduce((a, l) => a + Math.max(0, l.energy), 0), per = Math.max(1, S().energyPerBottle);
+  return { lv: 1 + Math.floor(dew / per), dew, per };
+}
+const titleName = t => t[S().theme === 'teen' ? 2 : 1];
+function curTitle() {
+  const lv = lumiLevel().lv, open = TITLES.filter(t => lv >= t[0]), pick = curLook().title;
+  const t = open.find(x => x[0] === pick) || open[open.length - 1]; // 沒選或選的還沒解鎖 → 用目前最高的
+  return titleName(t);
+}
+function lookVars() {
+  const c = LOOK_COLORS.find(x => x.id === curLook().color);
+  return c && c.c ? `--liquid1:${c.c[0]};--liquid2:${c.c[1]}` : '';
+}
+function accSVG(id) {
+  const ink = 'var(--ink)';
+  return ({
+    bow: `<path d="M100 162 L85 153 L85 171 Z M100 162 L115 153 L115 171 Z" fill="#ff6fa8" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="100" cy="162" r="4" fill="#ffb3d1" stroke="${ink}" stroke-width="1.5"/>`,
+    phones: `<path d="M71 186 Q71 150 100 150 Q129 150 129 186" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="63" y="176" width="13" height="20" rx="6" fill="var(--accent2)" stroke="${ink}" stroke-width="1.5"/><rect x="124" y="176" width="13" height="20" rx="6" fill="var(--accent2)" stroke="${ink}" stroke-width="1.5"/>`,
+    clip: `<path d="M121 152 L123.6 158.4 L130 159 L125 163.2 L126.6 170 L121 166.4 L115.4 170 L117 163.2 L112 159 L118.4 158.4 Z" fill="var(--gold)" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/>`,
+    shades: `<rect x="74" y="174" width="23" height="14" rx="6" fill="#1d1d2e"/><rect x="103" y="174" width="23" height="14" rx="6" fill="#1d1d2e"/><path d="M97 179 H103" stroke="#1d1d2e" stroke-width="3"/><path d="M78 178 L84 178" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".7"/><path d="M107 178 L113 178" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".7"/>`,
+    hat: `<path d="M78 166 L103 124 L122 166 Z" fill="var(--accent)" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/><ellipse cx="100" cy="167" rx="28" ry="5" fill="var(--accent)" stroke="${ink}" stroke-width="1.5"/><circle cx="104" cy="146" r="3.5" fill="var(--gold)"/>`,
+    crown: `<path d="M83 168 L83 151 L92 159 L100 146 L108 159 L117 151 L117 168 Z" fill="var(--gold)" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="100" cy="161" r="3" fill="var(--accent2)"/>`
+  })[id] || '';
+}
+function openWardrobe() {
+  modal('<div id="wd"></div>', o => {
+    const draw = () => {
+      const lk = curLook(), have = badgeCount(), L = lumiLevel();
+      const lock = need => have < need ? " disabled" : "";
+      const tag = need => have < need ? ` <small>🔒 ${need} 個徽章</small>` : '';
+      const next = TITLES.find(t => t[0] > L.lv);
+      o.querySelector('#wd').innerHTML = `<h2>🎨 露米衣櫥</h2>
+        <p class="muted">收集徽章就能解鎖新造型，不用花星露。目前有 ${have} 個徽章。</p>
+        <div style="${lookVars()}"><svg class="wprev" viewBox="50 118 100 110" role="img" aria-label="露米造型預覽">
+          <defs><linearGradient id="wlg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--liquid2)"/><stop offset="1" stop-color="var(--liquid1)"/></linearGradient></defs>
+          <circle cx="100" cy="185" r="42" fill="url(#wlg)" stroke="var(--line)" stroke-width="4"/>${lumiFace('happy')}</svg></div>
+        <label class="f">🏷️ 稱號（Lv.${L.lv}${next ? `・再 ${next[0] * L.per - L.per - L.dew} 星露升到 Lv.${next[0]} 解鎖「${titleName(next)}」` : ''}）</label>
+        <div class="wopts">${TITLES.map(t => `<button class="wopt ${curTitle() === titleName(t) ? 'on' : ''}" data-k="title" data-v="${t[0]}" ${L.lv < t[0] ? 'disabled' : ''}>${esc(titleName(t))}${L.lv < t[0] ? ` <small>🔒 Lv.${t[0]}</small>` : ''}</button>`).join('')}</div>
+        <label class="f">🫙 瓶子顏色</label>
+        <div class="wopts">${LOOK_COLORS.map(x => `<button class="wopt ${lk.color === x.id ? 'on' : ''}" data-k="color" data-v="${x.id}"${lock(x.need)}><span class="sw" style="background:${x.c ? `linear-gradient(${x.c[1]}, ${x.c[0]})` : 'linear-gradient(var(--liquid2), var(--liquid1))'}"></span>${x.n}${tag(x.need)}</button>`).join('')}</div>
+        <label class="f">✨ 配件</label>
+        <div class="wopts">${LOOK_ACCS.map(x => `<button class="wopt ${lk.acc === x.id ? 'on' : ''}" data-k="acc" data-v="${x.id}"${lock(x.need)}>${x.n}${tag(x.need)}</button>`).join('')}</div>
+        <div class="row" style="margin-top:14px"><button class="btn" id="wok">完成</button></div>`;
+      o.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+        const lk2 = curLook(); lk2[b.dataset.k] = b.dataset.k === 'title' ? +b.dataset.v : b.dataset.v;
+        ST().look = lk2; save(); sfx('tap'); draw(); if (tab === 'home') render();
+      });
+      o.querySelector('#wok').onclick = () => o.remove();
+    };
+    draw();
+  });
+}
+
 /* ========== 申訴信箱 ========== */
 // 每週（週一起算）可以寫 1 次申訴給家長，用完就沒了；家長回覆「接受」或「維持原規則」，全部留在紀錄裡
 const APPEALS_PER_WEEK = 1;
@@ -1342,7 +1427,7 @@ function renderParent() {
   // 重新開始：任務、能量、規則回到預設，但紀錄不刪（產品承諾）
   $('#reset').onclick = () => { if (confirm(`確定讓 ${kidLabel(db)} 重新開始？能量、瓶子、任務和規則會回到預設，魔法日誌會保留。`)) {
     const old = db, fresh = newKid(old.settings.kidName, old.settings.grade);
-    fresh.id = old.id; fresh.settings.kidPin = old.settings.kidPin; fresh.logs = old.logs; fresh.appeals = old.appeals; fresh.state.badges = old.state.badges;
+    fresh.id = old.id; fresh.settings.kidPin = old.settings.kidPin; fresh.logs = old.logs; fresh.appeals = old.appeals; fresh.state.badges = old.state.badges; fresh.state.look = old.state.look;
     fam.kids[fam.kids.indexOf(old)] = fresh; db = fresh; log('note', { title: '家長按了「重新開始」（之前的紀錄都保留）', energy: 0 }); save(); parentUnlocked = false; tab = 'home'; render(); } };
   $('#snd').onclick = () => { set.sound = !set.sound; save(); if (set.sound) sfx('tap'); render(); };
   $('#lock').onclick = () => { parentUnlocked = false; tab = 'home'; render(); };
