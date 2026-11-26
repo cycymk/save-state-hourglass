@@ -39,6 +39,7 @@ html, body, button, label, input, select, textarea { touch-action: manipulation;
 button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; -webkit-user-select: text; user-select: text; }
 .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+#view { padding-bottom: calc(96px + env(safe-area-inset-bottom)); } /* 最下面的按鈕不要被分頁列蓋住 */
 h1, h2, h3 { margin: 0 0 10px; }
 h2 { font-size: 1.25em; }
 .muted { color: var(--muted); font-size: .9em; }
@@ -54,6 +55,7 @@ h2 { font-size: 1.25em; }
 .btn.alt { background: var(--accent2); }
 .btn.mint { background: var(--mint); }
 .btn.ghost { background: transparent; color: var(--accent); border: 2px solid var(--accent); box-shadow: none; }
+:root[data-theme="teen"] .btn.ghost { color: var(--accent); } /* 國中主題：外框按鈕原本是深色字，在深色背景上看不到 */
 .btn.small { padding: 8px 14px; min-height: 40px; font-size: .9em; }
 .btn.big { font-size: 1.2em; padding: 16px 26px; width: 100%; }
 .btn[disabled] { opacity: .45; }
@@ -128,6 +130,7 @@ h2 { font-size: 1.25em; }
 .day.today { border-color: var(--accent2); }
 .log { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: .92em; }
 .log .when { color: var(--muted); width: 92px; flex: none; }
+.lognote { display: inline-block; margin-top: 4px; padding: 4px 8px; border-left: 3px solid var(--gold); color: var(--muted); font-size: .92em; }
 label.f { display: block; margin: 10px 0 4px; font-weight: 700; font-size: .9em; }
 /* 孩子切換列 */
 .kidbar { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 12px; }
@@ -142,6 +145,52 @@ label.f { display: block; margin: 10px 0 4px; font-weight: 700; font-size: .9em;
 .pinpad.shake .dots { animation: shake .35s; }
 @keyframes shake { 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
 .hide { display: none !important; }
+/* 拍照證明 */
+.photo-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 12px; flex: none; background: var(--line); cursor: pointer; }
+.photo-big { display: block; width: 100%; max-height: 60vh; object-fit: contain; border-radius: 12px; margin: 10px 0; background: var(--glass); }
+/* 數字華容道 */
+.seg { display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.slide { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 8px; width: min(100%, 360px); aspect-ratio: 1; margin: 14px auto 6px; }
+.slide button, .slide i { border-radius: 14px; }
+.slide button { background: var(--accent); color: #fff; font-size: 1.7em; font-weight: 800; box-shadow: 0 4px 0 rgba(0,0,0,.15); min-height: 48px; }
+.slide button.ok { background: var(--mint); }
+:root[data-theme="teen"] .slide button { color: #071022; }
+.slide i { background: var(--glass); border: 2px dashed var(--line); }
+/* 記憶翻牌 */
+.mem { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: min(100%, 420px); margin: 14px auto 6px; }
+.mem button { aspect-ratio: 3 / 4; min-height: 56px; border-radius: 14px; background: var(--accent); color: #fff; font-size: 1.4em; font-weight: 800; box-shadow: 0 4px 0 rgba(0,0,0,.15); padding: 2px; overflow-wrap: anywhere; line-height: 1.1; }
+.mem button.up { background: var(--card); color: var(--ink); border: 3px solid var(--accent); box-shadow: none; animation: flip .25s ease-out; }
+.mem button.got { background: var(--mint); color: #06281f; border: 0; box-shadow: none; }
+.mem button.word { font-size: 1.05em; }
+.mem button.big { font-size: 2em; }
+:root[data-theme="teen"] .mem button { color: #071022; }
+:root[data-theme="teen"] .mem button.up { color: var(--ink); }
+@keyframes flip { from { transform: scaleX(.1); } }
+@media (prefers-reduced-motion: reduce) { .mem button.up { animation: none; } }
+/* 週報與徽章 */
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0; }
+@media (min-width: 600px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+.stat { background: var(--glass); border-radius: 14px; padding: 10px 6px; text-align: center; font-size: .85em; color: var(--muted); }
+.stat b { display: block; font-size: 1.6em; color: var(--accent); }
+.ratio { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: var(--line); margin: 6px 0; }
+.ratio i { display: block; height: 100%; }
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.bdg { text-align: center; padding: 10px 6px; border-radius: 16px; background: var(--glass); border: 2px solid var(--line); }
+.bdg .bi { font-size: 34px; display: block; line-height: 1.2; }
+.bdg b { display: block; font-size: .85em; margin-top: 2px; }
+.bdg small { display: block; color: var(--muted); font-size: .72em; margin-top: 2px; }
+.bdg.on { border-color: var(--gold); }
+.bdg.lock .bi { filter: grayscale(1); opacity: .35; }
+/* 露米衣櫥 */
+.wopts { display: flex; flex-wrap: wrap; gap: 8px; }
+.wopt { min-height: 48px; padding: 8px 12px; border-radius: 14px; background: var(--glass); border: 2px solid var(--line); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.wopt.on { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.wopt[disabled] { opacity: .5; }
+.wopt small { font-weight: 400; color: var(--muted); }
+.wopt .sw { width: 22px; height: 22px; border-radius: 50%; flex: none; border: 2px solid var(--line); }
+.wprev { display: block; width: 150px; height: auto; margin: 4px auto 8px; }
+.lv { display: inline-block; margin: -4px 0 8px; padding: 4px 12px; border-radius: 999px; font-size: .85em; font-weight: 800; background: var(--glass); color: var(--accent); border: 2px solid var(--line); }
+:root[data-theme="teen"] .lv { color: var(--gold); border-color: rgba(255,209,102,.4); letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,209,102,.35); }
 </style>
 </head>
 <body>
@@ -161,6 +210,7 @@ const pad = n => String(n).padStart(2, '0');
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return dayKey(d); };
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+const shiftDay = (k, n) => { const d = new Date(k + 'T00:00'); d.setDate(d.getDate() + n); return dayKey(d); };
 
 function seed() {
   const g1 = uid(), g2 = uid();
@@ -171,7 +221,7 @@ function seed() {
       puzzleDailyCap: 20, ruleChangeDay: 0, onTimeBonus: 5, fast: false, contractSigned: null,
       autoApproveHours: 24, sound: true
     },
-    state: { energy: 0, bottles: 0, trust: 100, streakOnTime: 0, lastSessionEnd: 0, ticket: null, appealsWeek: '' },
+    state: { energy: 0, bottles: 0, trust: 100, streakOnTime: 0, lastSessionEnd: 0, ticket: null, appealsWeek: '', badges: {}, look: { color: '', acc: '', title: '' } },
     tasks: [
       { id: uid(), title: '寫作業（專注）', icon: '📚', type: 'focus', verify: 'auto', energy: 25, minutes: 25, required: true },
       { id: uid(), title: '鋼琴練習', icon: '🎹', type: 'practice', verify: 'auto', energy: 30, minutes: 30, required: false, goalId: g2 },
@@ -184,7 +234,7 @@ function seed() {
       { id: g1, title: '段考前完成數學習作 ×5', due: addDays(25), kind: 'count', target: 5, created: dayKey() },
       { id: g2, title: '音樂比賽：每天練琴 60 分', due: addDays(30), kind: 'daily', target: 60, created: dayKey() }
     ],
-    logs: [], pending: []
+    logs: [], pending: [], appeals: []
   };
 }
 const GRADES = [[1, '小一'], [2, '小二'], [3, '小三'], [4, '小四'], [5, '小五'], [6, '小六'], [7, '國一'], [8, '國二'], [9, '國三']];
@@ -192,7 +242,7 @@ const gradeName = g => (GRADES.find(x => x[0] === +g) || [0, ''])[1];
 // 舊資料相容：新欄位用預設值補上，絕不覆蓋已有資料
 function upgradeKid(p) {
   const d = seed(); p.settings = Object.assign(d.settings, p.settings); p.state = Object.assign(d.state, p.state);
-  ['tasks', 'goals', 'logs', 'pending'].forEach(k => { if (!Array.isArray(p[k])) p[k] = k === 'tasks' || k === 'goals' ? d[k] : []; });
+  ['tasks', 'goals', 'logs', 'pending', 'appeals'].forEach(k => { if (!Array.isArray(p[k])) p[k] = k === 'tasks' || k === 'goals' ? d[k] : []; });
   if (!p.id) p.id = uid();
   return p;
 }
@@ -213,10 +263,11 @@ fam.kids.forEach(upgradeKid);
 if (!fam.pin) fam.pin = '0000';
 db = fam.kids.find(k => k.id === fam.cur) || fam.kids[0]; fam.cur = db.id;
 function save() { try { localStorage.setItem(FKEY, JSON.stringify(fam)); } catch (e) {} }
+save(); // 補好的欄位（例如孩子 id）馬上存起來，行事曆匯出的 UID 才會固定
 const S = () => db.settings, ST = () => db.state;
 const kidLabel = k => k.settings.kidName || `孩子 ${fam.kids.indexOf(k) + 1}`;
 function withKid(k, fn) { const prev = db; db = k; try { return fn(); } finally { db = prev; } }
-const allPending = () => fam.kids.reduce((a, k) => a + k.pending.length, 0);
+const allPending = () => fam.kids.reduce((a, k) => a + k.pending.length + k.appeals.filter(x => !x.status).length, 0); // 待核准＋還沒回覆的申訴
 const unitMs = () => S().fast ? 1000 : 60000; // 測試模式：1 分鐘 = 1 秒
 function log(kind, o = {}) { db.logs.unshift(Object.assign({ id: uid(), ts: Date.now(), day: dayKey(), kind }, o)); }
 
@@ -243,12 +294,18 @@ function taskReward(t) {
   const n = todayLogs('earn').filter(l => l.taskId === t.id).length;
   return n >= 2 ? Math.ceil(t.energy / 2) : t.energy; // 同任務第 3 次起減半
 }
+// 誠信值（PLAN 3.2 L3）：家長抽查自主回報的任務；低於 70 時，自主回報先請家長看，核准幾次就恢復
+const TRUST_LOW = 70;
+const trustNow = () => Math.round(+ST().trust >= 0 ? +ST().trust : 100);
+const trustLow = () => trustNow() < TRUST_LOW;
+const addTrust = n => { ST().trust = Math.max(0, Math.min(100, trustNow() + n)); };
+const trustWait = t => db.pending.some(p => p.trust && p.taskId === t.id && p.day === dayKey()); // 恢復期送出、等家長看的
 function redeemBlockers() {
   const s = ST(), set = S(), why = [];
   if (s.ticket) why.push('遊戲券正在使用中');
   if (s.bottles < 1) why.push(`還沒有滿瓶（還差 ${set.energyPerBottle - s.energy} 星露）`);
   if (new Date() >= curfewDate()) why.push(`${set.curfew} 後魔法瓶休息了，明天再來`);
-  const req = db.tasks.filter(t => t.required && !todayLogs('earn').some(l => l.taskId === t.id));
+  const req = db.tasks.filter(t => t.required && !todayLogs('earn').some(l => l.taskId === t.id) && !trustWait(t));
   if (req.length) why.push('先完成必做任務：' + req.map(t => t.icon + t.title).join('、'));
   const left = dailyCap() - usedMinutesToday();
   if (left < set.minutesPerBottle) why.push(`今天的遊戲時間已用完（上限 ${dailyCap()} 分）`);
@@ -264,7 +321,7 @@ function housekeeping() {
     if (Date.now() - p.ts > hrs) {
       const t = db.tasks.find(x => x.id === p.taskId);
       db.pending = db.pending.filter(x => x.id !== p.id);
-      addEnergy(p.energy, { taskId: p.taskId, title: (t ? t.title : p.title) + '（逾時自動核准）', source: 'auto-approve' });
+      addEnergy(p.energy, { taskId: p.taskId, title: (t ? t.title : p.title) + '（逾時自動核准）', source: 'auto-approve', photo: p.photo ? p.id : undefined });
     }
   });
   const tk = ST().ticket;
@@ -345,12 +402,17 @@ function renderTabs() {
 }
 function render() {
   document.documentElement.dataset.theme = S().theme;
-  fam.kids.forEach(k => withKid(k, housekeeping)); renderTabs();
+  const cur = db; let fresh = [];
+  fam.kids.forEach(k => withKid(k, () => { housekeeping(); const f = checkBadges(); if (k === cur) fresh = f; })); renderTabs();
   ({ home: renderHome, cal: renderCal, puzzle: renderPuzzle, log: renderLog, parent: renderParent })[tab]();
   if (fam.kids.length > 1 && !(tab === 'parent' && !parentUnlocked)) $('#view').insertAdjacentHTML('afterbegin', kidbarHTML());
   $('#view').querySelectorAll('[data-kid]').forEach(b => b.onclick = () => askSwitchKid(b.dataset.kid));
   if (IS_BETA) $('#view').insertAdjacentHTML('afterbegin', '<div class="pill gold" style="margin-bottom:10px">🧪 試玩版（beta）・資料與正式版分開</div>');
   window.scrollTo(0, 0);
+  if (fresh.length) setTimeout(() => { // 晚一點出現，不要和加能量的提示疊在一起
+    if (fresh.length > 2) return toast(`🏅 解鎖了 ${fresh.length} 個徽章！到「紀錄」頁看看`, 3200);
+    burst('bonus'); toast(`🏅 獲得徽章：${fresh.map(b => b.ic + ' ' + b.n).join('、')}`, 3200);
+  }, 1200);
 }
 
 /* ========== 多孩子：切換列與密碼鍵盤 ========== */
@@ -440,7 +502,7 @@ function lumiFace(mood) {
     yay: `<path d="M79 185 L86 178 L93 185" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M107 185 L114 178 L121 185" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>${cheek}${openMouth}`,
     play: `<g class="blink"><circle cx="86" cy="182" r="6" fill="${ink}"/><circle cx="114" cy="182" r="6" fill="${ink}"/></g>${cheek}${smile}`
   };
-  return faces[mood] || faces.calm;
+  return (faces[mood] || faces.calm) + accSVG(curLook().acc);
 }
 function bottleSVG(pct) {
   const y = 250 - pct * 175;
@@ -508,23 +570,27 @@ function renderHome() {
   $('#view').innerHTML = `
   ${installHintHTML()}
   ${!set.contractSigned ? `<div class="card" style="border:2px dashed var(--accent2)"><b>📝 還沒簽「家庭契約」</b><div class="muted">請爸爸媽媽到「家長」頁面，和孩子一起確認規則並簽名。</div></div>` : ''}
+  ${new Date().getDay() === set.ruleChangeDay ? `<div class="card row between"><div><b>🏠 今天是家庭會議日</b><div class="muted">一起看看這週的週報和徽章，聊聊下週的規則吧</div></div><button class="btn small" id="toWeek">📊 看週報</button></div>` : ''}
   ${tk ? `<div class="card row between" style="background:var(--mint);color:#06281f"><div><b>🎮 遊戲券使用中</b><div>剩下 <b id="tkLeft">${fmt(tk.end - Date.now())}</b></div></div><button class="btn small" id="tkOpen">打開計時</button></div>` : ''}
   <div class="grid2">
-    <div class="card bottle-wrap">
+    <div class="card bottle-wrap" style="${lookVars()}">
       <h2>${name}魔法瓶</h2>
+      <div><span class="lv">Lv.${lumiLevel().lv} ${S().theme === 'teen' ? '✦' : '⭐'} ${esc(curTitle())}</span></div>
       ${bottleSVG(Math.min(1, pct))}
       <div><span class="energy-num">${s.energy}</span> / ${set.energyPerBottle} 星露</div>
       <div class="shelf">${Array.from({ length: set.maxBottles }, (_, i) => `<div class="mini ${i < s.bottles ? 'full' : ''}"></div>`).join('')}</div>
       <div class="muted">瓶架 ${s.bottles}/${set.maxBottles}・1 瓶 = ${set.minutesPerBottle} 分鐘遊戲時間</div>
-      <div class="muted">今天已用 ${usedMinutesToday()} / ${dailyCap()} 分・準時下線連續 ${s.streakOnTime} 次 🔥</div>
+      <div class="muted">今天已用 ${usedMinutesToday()} / ${dailyCap()} 分</div>
+      <div class="muted">🔥 連續 ${dayStreak()} 天做任務・⏰ 準時下線連續 ${s.streakOnTime} 次・🤝 誠信值 ${trustNow()}</div>
       <div style="margin-top:12px"><button class="btn big alt" id="redeem" ${blockers.length ? 'disabled' : ''}>🎮 用 1 瓶換 ${set.minutesPerBottle} 分鐘</button></div>
       ${blockers.length ? `<div class="muted" style="margin-top:8px;text-align:left">${blockers.map(b => '・' + esc(b)).join('<br>')}</div>` : ''}
-      <div style="margin-top:10px"><button class="btn small ghost" id="altReward">🎁 換「非 3C」獎勵</button></div>
+      <div class="row wrapflex" style="margin-top:10px;justify-content:center"><button class="btn small ghost" id="altReward">🎁 換「非 3C」獎勵</button><button class="btn small ghost" id="wardrobe">🎨 露米衣櫥</button></div>
     </div>
     <div class="card">
       <div class="row between"><h2>今日任務</h2><span class="muted">週${WEEK[new Date().getDay()]}・${dayKey()}</span></div>
       ${db.tasks.map(taskRow).join('') || '<div class="muted">還沒有任務，請家長新增</div>'}
       <div class="muted" style="margin-top:6px">🤖 自動驗證　👀 家長核准　🤝 誠信回報・同一任務第 3 次起能量減半</div>
+      ${trustLow() ? `<div class="muted" style="margin-top:6px">🤝 誠信值恢復中（${trustNow()} / ${TRUST_LOW}）：自己回報的任務這幾天先請爸媽看一下，每核准一次 +5，回到 ${TRUST_LOW} 就能自己按完成囉</div>` : ''}
     </div>
   </div>`;
   $('#view').querySelectorAll('[data-do]').forEach(b => b.onclick = () => doTask(b.dataset.do));
@@ -532,13 +598,16 @@ function renderHome() {
   const bp = Math.min(1, pct); $('#lumi').onclick = () => lumiPoke(bp);
   if (Date.now() - lumiYay < 2500) lumiSettle(bp);
   $('#altReward').onclick = altReward;
+  $('#wardrobe').onclick = openWardrobe;
   if (tk) $('#tkOpen').onclick = openTicket;
+  const tw = $('#toWeek'); if (tw) tw.onclick = () => { tab = 'log'; weekOff = 0; render(); };
 }
 function taskRow(t) {
   const n = doneToday(t.id), pend = db.pending.some(p => p.taskId === t.id && p.day === dayKey());
   const done = oneShot(t) && n > 0;
-  const v = { auto: '🤖', parent: '👀', self: '🤝' }[t.verify];
-  const label = t.type === 'practice' ? '開始練習' : t.type === 'focus' ? '開始專注' : t.verify === 'parent' ? '完成，請家長看' : '我完成了';
+  const ask = t.verify === 'parent' || (t.verify === 'self' && trustLow()); // 誠信值恢復中：自主回報也先請家長看
+  const v = t.verify === 'self' && ask ? '👀' : { auto: '🤖', parent: '👀', self: '🤝' }[t.verify];
+  const label = t.type === 'practice' ? '開始練習' : t.type === 'focus' ? '開始專注' : ask ? '完成，請家長看' : '我完成了';
   return `<div class="task ${done ? 'done' : ''}">
     <div class="ic">${t.icon}</div>
     <div class="t"><b>${esc(t.title)}</b>
@@ -553,18 +622,88 @@ function doTask(id) {
   if (ST().ticket) return toast('遊戲時間中不能做任務喔，先結束遊戲券');
   if (t.type === 'focus' || t.type === 'practice') return startFocus(t);
   if (t.verify === 'parent') {
-    modal(`<h2>${t.icon} ${esc(t.title)}</h2><p class="muted">寫一句話給爸媽（例如：做了第幾頁、哪裡不會）</p>
-      <textarea id="note" rows="3" placeholder="例：p.12–15 寫完了，第 7 題不太會"></textarea>
+    modal(`<h2>${t.icon} ${esc(t.title)}</h2><p class="muted">拍張照片、寫一句話給爸媽（例如：做了第幾頁、哪裡不會），都可以不填</p>
+      <label class="btn ghost" style="display:inline-flex;align-items:center">📷 <span id="phl">拍照 / 選照片</span><input type="file" accept="image/*" id="ph" style="display:none"></label>
+      <img id="phv" class="photo-big hide" alt="要給爸媽看的照片">
+      <textarea id="note" rows="3" placeholder="例：p.12–15 寫完了，第 7 題不太會" style="margin-top:10px"></textarea>
       <div class="row" style="margin-top:12px"><button class="btn" id="ok">送出給家長</button></div>`, o => {
-      o.querySelector('#ok').onclick = () => {
-        db.pending.push({ id: uid(), ts: Date.now(), day: dayKey(), taskId: t.id, title: t.title, energy: taskReward(t), note: o.querySelector('#note').value.trim() });
-        log('note', { title: `送出「${t.title}」等待家長核准`, energy: 0 }); save(); o.remove(); sfx('sent'); toast('已送出！家長核准後就會加能量 ✨'); render();
+      let blob = null;
+      o.querySelector('#ph').onchange = async e => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        try { blob = await shrinkPhoto(f); } catch (err) { return toast('這張照片讀不出來，換一張試試'); }
+        const im = o.querySelector('#phv'); URL.revokeObjectURL(im.src); im.src = URL.createObjectURL(blob); im.classList.remove('hide');
+        o.querySelector('#phl').textContent = '重拍 / 換一張';
+      };
+      o.querySelector('#ok').onclick = async e => {
+        e.currentTarget.disabled = true; // 存照片要一點時間，避免連按送出兩次
+        const id = uid(); let photo = false;
+        if (blob) { try { await photoPut(id, blob); photo = true; } catch (err) { toast('照片存不下來（可能是空間不足），先只送出文字'); } }
+        db.pending.push({ id, ts: Date.now(), day: dayKey(), taskId: t.id, title: t.title, energy: taskReward(t), note: o.querySelector('#note').value.trim(), photo });
+        log('note', { taskId: t.id, title: `送出「${t.title}」等待家長核准${photo ? '（附照片）' : ''}`, energy: 0 }); save(); o.remove(); sfx('sent'); toast('已送出！家長核准後就會加能量 ✨'); render();
       };
     });
     return;
   }
+  if (t.verify === 'self' && trustLow()) { // 誠信值恢復中：先送給家長看，不需要照片
+    db.pending.push({ id: uid(), ts: Date.now(), day: dayKey(), taskId: t.id, title: t.title, energy: taskReward(t), note: '誠信值恢復中，請爸媽確認', photo: false, trust: true });
+    log('note', { taskId: t.id, title: `送出「${t.title}」等待家長確認（誠信值恢復中）`, energy: 0 }); save(); sfx('sent');
+    toast('🤝 這次先請爸媽看一下，確認後就會加能量 ✨'); render(); return;
+  }
   const res = addEnergy(taskReward(t), { taskId: t.id, title: t.title, source: 'self' });
   celebrate(res, t.title); render();
+}
+
+/* ========== 拍照證明 ========== */
+// 照片只存在這台裝置的 IndexedDB（不上傳、不放進 localStorage）；家長核准或退回後再保留 7 天，可在魔法日誌回顧
+const PHOTO_KEEP_MS = 7 * 864e5;
+const photoFresh = l => l.photo && Date.now() - l.ts < PHOTO_KEEP_MS;
+const PDB = 'starjar-photos' + (IS_BETA ? '-beta' : '');
+let pdbP = null;
+function photoDB() {
+  return pdbP = pdbP || new Promise((res, rej) => {
+    const r = indexedDB.open(PDB, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('p');
+    r.onsuccess = () => res(r.result); r.onerror = () => { pdbP = null; rej(r.error); };
+  });
+}
+async function photoOp(mode, fn) {
+  const d = await photoDB();
+  return new Promise((res, rej) => {
+    const tx = d.transaction('p', mode), r = fn(tx.objectStore('p'));
+    tx.oncomplete = () => res(r.result); tx.onerror = () => rej(tx.error);
+  });
+}
+const photoPut = (id, blob) => photoOp('readwrite', s => s.put(blob, id));
+const photoGet = id => photoOp('readonly', s => s.get(id));
+const photoDel = id => photoOp('readwrite', s => s.delete(id)).catch(() => {});
+// 清掉不再需要的照片：不是待核准、也不是 7 天內日誌裡的照片
+async function photoSweep() {
+  const keep = new Set(fam.kids.flatMap(k => k.pending.map(p => p.id).concat(k.logs.filter(photoFresh).map(l => l.photo))));
+  try { (await photoOp('readonly', s => s.getAllKeys()) || []).filter(k => !keep.has(k)).forEach(photoDel); } catch (e) {}
+}
+// 縮成長邊 1280 的 JPEG，一張大約 100–200KB
+function shrinkPhoto(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1280 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      c.toBlob(b => b ? res(b) : rej(new Error('photo')), 'image/jpeg', .75);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('photo')); };
+    img.src = url;
+  });
+}
+let photoURLs = [];
+function showPhotos(V) {
+  photoURLs.forEach(u => URL.revokeObjectURL(u)); photoURLs = [];
+  V.querySelectorAll('[data-ph]').forEach(async im => {
+    let b = null; try { b = await photoGet(im.dataset.ph); } catch (e) {}
+    if (!b) { const s = document.createElement('span'); s.className = 'muted'; s.textContent = '📷 照片不在這台裝置'; im.replaceWith(s); return; }
+    const u = URL.createObjectURL(b); photoURLs.push(u); im.src = u;
+    im.onclick = () => modal(`<img class="photo-big" src="${u}" alt="孩子拍的照片"><button class="btn big" id="cl">關閉</button>`, o => o.querySelector('#cl').onclick = () => o.remove());
+  });
 }
 
 /* ========== focus / practice mode ========== */
@@ -728,24 +867,95 @@ function renderCal() {
       const earned = db.logs.filter(l => l.day === k && l.kind === 'earn').reduce((a, l) => a + l.energy, 0);
       return `<div class="day ${k === dayKey() ? 'today' : ''}"><div class="row between"><b>${d.getMonth() + 1}/${d.getDate()}（${WEEK[d.getDay()]}）${k === dayKey() ? '・今天' : ''}${d.getDay() === S().ruleChangeDay ? '・🏠 家庭會議日' : ''}</b>${earned ? `<span class="pill">+${earned}</span>` : ''}</div>
       ${due.map(g => `<div>🚩 ${esc(g.title)} 截止</div>`).join('')}</div>`; }).join('')}
+  </div>
+  <div class="card"><h2>📤 加入 iPad／手機行事曆</h2>
+    <p class="muted">把${fam.kids.length > 1 ? '全家孩子的' : ''}目標截止日（前一天提醒）和每週的家庭會議日，匯出成行事曆檔（.ics），可以加到 iPad 內建「行事曆」、iCloud 或 Google 行事曆。只會產生一個檔案在這台裝置，不會上傳到任何地方。</p>
+    <div class="row wrapflex"><button class="btn small" id="icsAdd">📅 下載行事曆檔</button><button class="btn small ghost" id="icsShare">📤 分享／存到檔案</button></div>
+    <p class="muted" style="margin-top:8px">iPad：下載後點開檔案，選「加入全部」就會出現在「行事曆」App。如果沒有反應，改按「分享／存到檔案」存到「檔案」App，再從那裡點開。<br>之後新增或修改目標，再匯出一次就好；同一個目標會更新，不會重複出現。</p>
   </div>`;
+  $('#icsAdd').onclick = () => exportICS(false);
+  $('#icsShare').onclick = () => exportICS(true);
+}
+
+/* ========== .ics 行事曆匯出 ========== */
+// 目標截止日（全天、前一天提醒）＋每週家庭會議日；UID 固定，重新匯入會更新同一個事件
+const icsEsc = s => String(s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const icsDate = k => k.replace(/-/g, '');
+// 每行最多 75 bytes（中文一字 3 bytes），超過要折行，續行開頭加一個空白
+function icsFold(line) {
+  const out = []; let cur = '', bytes = 0;
+  for (const ch of line) {
+    const b = new TextEncoder().encode(ch).length;
+    if (bytes + b > (out.length ? 74 : 75)) { out.push(cur); cur = ''; bytes = 0; }
+    cur += ch; bytes += b;
+  }
+  out.push(cur);
+  return out.join('\r\n ');
+}
+function buildICS() {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const multi = fam.kids.length > 1, L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//StarJar//魔法能量瓶//ZH-TW', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:魔法能量瓶'];
+  const ev = (uid, start, end, title, desc, extra = [], alarm) => {
+    L.push('BEGIN:VEVENT', `UID:${uid}@starjar`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${start}`, `DTEND;VALUE=DATE:${end}`, `SUMMARY:${icsEsc(title)}`, `DESCRIPTION:${icsEsc(desc)}`, 'TRANSP:TRANSPARENT', ...extra);
+    if (alarm) L.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEsc(alarm)}`, 'TRIGGER;RELATED=START:-PT6H', 'END:VALARM'); // 全天事件：前一天 18:00 提醒
+    L.push('END:VEVENT');
+  };
+  let n = 0;
+  fam.kids.forEach(k => k.goals.forEach(g => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(g.due || '') || daysLeft(g.due) < 0) return; // 已結束的不匯出
+    const who = multi ? `${kidLabel(k)}：` : '';
+    ev(`goal-${k.id}-${g.id}`, icsDate(g.due), icsDate(shiftDay(g.due, 1)), `🚩 ${who}${g.title} 截止`,
+      `${g.kind === 'count' ? `目標：完成 ${g.target} 次` : `目標：每天練 ${g.target} 分鐘`}（來自魔法能量瓶）`, [], `明天是「${who}${g.title}」的截止日`);
+    n++;
+  }));
+  // 家庭會議日：同一天的孩子合併成一個每週事件
+  const byDay = {};
+  fam.kids.forEach(k => (byDay[k.settings.ruleChangeDay] = byDay[k.settings.ruleChangeDay] || []).push(kidLabel(k)));
+  const BYDAY = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+  Object.keys(byDay).forEach(w => {
+    let d = new Date(); d.setDate(d.getDate() + (+w - d.getDay() + 7) % 7); const k = dayKey(d);
+    ev(`meeting-${w}`, icsDate(k), icsDate(shiftDay(k, 1)), `🏠 家庭會議日${multi ? `（${byDay[w].join('、')}）` : ''}`,
+      '一起看魔法能量瓶的週報和徽章，聊聊下週的規則。規則只在今天可以修改。', [`RRULE:FREQ=WEEKLY;BYDAY=${BYDAY[w]}`]);
+  });
+  L.push('END:VCALENDAR');
+  return { text: L.map(icsFold).join('\r\n') + '\r\n', goals: n };
+}
+async function exportICS(asFile) {
+  const { text, goals } = buildICS();
+  const name = `魔法能量瓶行事曆-${dayKey()}.ics`;
+  const file = new File([text], name, { type: 'text/calendar' });
+  try {
+    if (asFile && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: name });
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); } // iPad Safari 下載後點檔案會出現「加入全部」
+  } catch (e) { if (e && e.name === 'AbortError') return toast('已取消'); }
+  toast(`📅 已匯出 ${goals} 個目標截止日＋家庭會議日`, 3000);
 }
 
 /* ========== puzzle: 閃電心算 ========== */
 // 依年級預設難度：小一二 → 低、小三四 → 中、小五以上 → 高
 const puzzleLevel = () => { const g = +S().grade || 0; return !g ? 2 : g <= 2 ? 1 : g <= 4 ? 2 : 3; };
+let puzzleGame = 'quiz', puzzleLv = 0; // 目前選的難度，「再玩一次」會用它
 function renderPuzzle() {
-  const left = S().puzzleDailyCap - puzzleToday();
+  const left = Math.max(0, S().puzzleDailyCap - puzzleToday());
+  const G = {
+    quiz: { n: '⚡ 閃電心算', opts: [['1', '低年級'], ['2', '中年級'], ['3', '高年級/國中']], lv: puzzleLevel, run: runQuiz,
+      d: '60 秒內答對越多越好。每答對 2 題 +1 星露' },
+    slide: { n: '🔢 數字華容道', opts: [['3', '3×3 入門'], ['4', '4×4 挑戰']], lv: slideSize, run: runSlide,
+      d: `點空格旁邊的數字把它滑過去，排成 1、2、3…，空格在右下角就完成了。完成 3×3 +${SLIDE_REWARD[3]}、4×4 +${SLIDE_REWARD[4]} 星露` },
+    mem: { n: '🃏 記憶翻牌', opts: [['1', '🐾 圖案配對'], ['2', '🔤 英文配對']], lv: memLevel, run: runMem,
+      d: `一次翻兩張，一樣的就配對成功，全部配完就完成了。英文配對是把單字和圖案配在一起。完成圖案 +${MEM_REWARD[1]}、英文 +${MEM_REWARD[2]} 星露` }
+  };
+  const g = G[puzzleGame] || G.quiz;
+  const lv = puzzleLv = g.lv();
   $('#view').innerHTML = `<div class="card" style="text-align:center">
-    <h2>⚡ 閃電心算</h2><p class="muted">60 秒內答對越多越好。每答對 2 題 +1 星露，今天還能拿 <b>${Math.max(0, left)}</b> 星露。</p>
-    <div class="row" style="justify-content:center;gap:8px;margin-bottom:12px">
-      ${[['1', '低年級'], ['2', '中年級'], ['3', '高年級/國中']].map(([v, n]) => `<button class="btn small ${+v === puzzleLevel() ? '' : 'ghost'}" data-lv="${v}">${n}</button>`).join('')}
-    </div>
+    <div class="seg">${Object.keys(G).map(k => `<button class="btn small ${G[k] === g ? 'alt' : 'ghost'}" data-game="${k}">${G[k].n}</button>`).join('')}</div>
+    <h2>${g.n}</h2><p class="muted">${g.d}，今天還能拿 <b>${left}</b> 星露。</p>
+    <div class="seg">${g.opts.map(([v, n]) => `<button class="btn small ${+v === lv ? '' : 'ghost'}" data-lv="${v}">${n}</button>`).join('')}</div>
     <div id="qz"><button class="btn big" id="qs">開始挑戰</button></div>
-    <p class="muted" style="margin-top:14px">更多小遊戲（華容道、記憶翻牌、24 點）會在之後版本加入</p></div>`;
-  let lv = puzzleLevel();
-  $('#view').querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { lv = +b.dataset.lv; $('#view').querySelectorAll('[data-lv]').forEach(x => x.classList.toggle('ghost', x !== b)); });
-  $('#qs').onclick = () => runQuiz(lv);
+    <p class="muted" style="margin-top:14px">更多小遊戲（24 點、成語接龍）會在之後版本加入</p></div>`;
+  $('#view').querySelectorAll('[data-game]').forEach(b => b.onclick = () => { puzzleGame = b.dataset.game; render(); });
+  $('#view').querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { puzzleLv = +b.dataset.lv; $('#view').querySelectorAll('[data-lv]').forEach(x => x.classList.toggle('ghost', x !== b)); });
+  $('#qs').onclick = () => g.run(puzzleLv);
 }
 function makeQ(lv) {
   const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -786,29 +996,369 @@ function runQuiz(lv) {
       if (got > 0) { const res = addEnergy(got, { title: `閃電心算 答對 ${right} 題`, source: 'puzzle' }); celebrate(res, '閃電心算'); msg += ` 獲得 ${res.gained} 星露！`; }
       else msg += can <= 0 ? ' 今天益智能量已滿，可以繼續玩當作放鬆～' : ' 再挑戰一次吧！';
       box.innerHTML = `<div class="quiz-q">🎉</div><p>${msg}</p><button class="btn" id="qs2">再玩一次</button>`;
-      $('#qs2').onclick = () => runQuiz(lv);
+      $('#qs2').onclick = () => runQuiz(puzzleLv);
     }
   }, 250);
 }
 
+/* ========== puzzle: 數字華容道 ========== */
+const SLIDE_REWARD = { 3: 4, 4: 8 };
+const slideSize = () => (+S().grade || 0) >= 5 ? 4 : 3; // 小五以上預設 4×4
+const isSolved = b => b.every((v, i) => v === (i + 1) % b.length); // 0 = 空格，在最後一格
+const slideNear = (z, n) => [z - n, z + n, z % n ? z - 1 : -1, z % n < n - 1 ? z + 1 : -1].filter(x => x >= 0 && x < n * n);
+// 從排好的盤面隨機滑動來打亂，所以一定解得開
+function shuffleBoard(n) {
+  const b = Array.from({ length: n * n }, (_, i) => (i + 1) % (n * n));
+  let z = n * n - 1, prev = -1;
+  for (let i = 0; i < n * n * 25; i++) {
+    const nb = slideNear(z, n).filter(x => x !== prev), m = nb[Math.floor(Math.random() * nb.length)];
+    b[z] = b[m]; b[m] = 0; prev = z; z = m;
+  }
+  return isSolved(b) ? shuffleBoard(n) : b;
+}
+function runSlide(n) {
+  let b = shuffleBoard(n), moves = 0; const t0 = Date.now();
+  const box = $('#qz');
+  const draw = () => {
+    box.innerHTML = `<div class="row between"><span class="pill">步數 ${moves}</span><button class="btn small ghost" id="sr">🔀 重新打亂</button></div>
+      <div class="slide" style="--n:${n}">${b.map((v, i) => v ? `<button data-i="${i}" class="${v === i + 1 ? 'ok' : ''}" aria-label="${v}">${v}</button>` : '<i></i>').join('')}</div>
+      <p class="muted">綠色＝已經在正確位置。同一排的數字可以一次滑好幾格。</p>`;
+    $('#sr').onclick = () => runSlide(n);
+    box.querySelectorAll('[data-i]').forEach(el => el.onclick = () => tap(+el.dataset.i));
+  };
+  // 點的格子和空格同一排或同一列，就把中間的數字一起推過去
+  const tap = i => {
+    let z = b.indexOf(0);
+    const sameRow = Math.floor(i / n) === Math.floor(z / n), sameCol = i % n === z % n;
+    if (!sameRow && !sameCol) return sfx('soft');
+    const step = sameRow ? (i > z ? 1 : -1) : (i > z ? n : -n);
+    while (z !== i) { b[z] = b[z + step]; z += step; }
+    b[i] = 0; moves++; sfx('tap');
+    if (isSolved(b)) return win();
+    draw();
+  };
+  const win = () => {
+    const can = Math.max(0, S().puzzleDailyCap - puzzleToday());
+    const got = Math.min(can, SLIDE_REWARD[n]);
+    let msg = `${n}×${n} 完成！用了 ${moves} 步、${fmt(Date.now() - t0)}。`;
+    if (got > 0) { const res = addEnergy(got, { title: `數字華容道 ${n}×${n} 完成（${moves} 步）`, source: 'puzzle' }); celebrate(res, '數字華容道'); msg += ` 獲得 ${res.gained} 星露！`; }
+    else msg += ' 今天益智能量已滿，可以繼續玩當作放鬆～';
+    box.innerHTML = `<div class="quiz-q">🎉</div><p>${msg}</p><button class="btn" id="qs2">再玩一次</button>`;
+    $('#qs2').onclick = () => runSlide(puzzleLv);
+  };
+  draw();
+}
+
+/* ========== puzzle: 記憶翻牌 ========== */
+// 1 = 圖案配對（12 張、6 對）；2 = 英文配對（16 張、8 對，單字配圖案）
+const MEM_REWARD = { 1: 4, 2: 8 };
+const memLevel = () => (+S().grade || 0) >= 3 ? 2 : 1; // 小三開始學英文，預設英文配對
+const MEM_PICS = ['🐶', '🐱', '🐰', '🦊', '🐼', '🐸', '🐧', '🐳', '🍎', '🍉', '🌻', '🎈', '🚗', '⭐', '🌈', '🍩'];
+const MEM_WORDS = [['cat', '🐱'], ['dog', '🐶'], ['fish', '🐟'], ['bird', '🐦'], ['bear', '🐻'], ['pig', '🐷'], ['apple', '🍎'], ['egg', '🥚'],
+  ['milk', '🥛'], ['cake', '🍰'], ['sun', '☀️'], ['moon', '🌙'], ['star', '⭐'], ['tree', '🌳'], ['book', '📖'], ['car', '🚗'], ['bus', '🚌'], ['ball', '⚽']];
+const shuffled = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function runMem(lv) {
+  const eng = lv === 2;
+  const pairs = shuffled(eng ? MEM_WORDS : MEM_PICS).slice(0, eng ? 8 : 6);
+  // 每張牌：k = 配對代號，face = 顯示內容
+  const cards = shuffled(pairs.flatMap((p, k) => eng ? [{ k, face: p[0], word: true }, { k, face: p[1] }] : [{ k, face: p }, { k, face: p }]));
+  let open = [], tries = 0, got = 0, busy = false; const t0 = Date.now();
+  const box = $('#qz');
+  const draw = () => {
+    box.innerHTML = `<div class="row between"><span class="pill">配對 ${got} / ${pairs.length}・翻了 ${tries} 次</span><button class="btn small ghost" id="mr">🔀 重新洗牌</button></div>
+      <div class="mem">${cards.map((c, i) => c.got || c.up
+        ? `<button data-i="${i}" class="${c.got ? 'got' : 'up'} ${c.word ? 'word' : 'big'}" aria-label="${esc(c.face)}">${esc(c.face)}</button>`
+        : `<button data-i="${i}" aria-label="蓋著的牌">✦</button>`).join('')}</div>
+      <p class="muted">${eng ? '把英文單字和它的圖案配成一對，例如 cat ↔ 🐱' : '記住每張牌的位置，翻出兩張一樣的'}</p>`;
+    $('#mr').onclick = () => runMem(lv);
+    box.querySelectorAll('[data-i]').forEach(el => el.onclick = () => flip(+el.dataset.i));
+  };
+  const flip = i => {
+    const c = cards[i];
+    if (busy || c.up || c.got) return;
+    c.up = true; open.push(c); sfx('tap');
+    if (open.length < 2) return draw();
+    tries++;
+    const [a, b] = open; open = [];
+    if (a.k === b.k) {
+      a.got = b.got = true; got++; sfx('right');
+      if (got === pairs.length) return win();
+      return draw();
+    }
+    busy = true; draw(); // 沒配對到：讓孩子看一下再蓋回去
+    setTimeout(() => { a.up = b.up = false; busy = false; if (box.isConnected && $('#qz') === box) draw(); }, 900);
+  };
+  const win = () => {
+    const can = Math.max(0, S().puzzleDailyCap - puzzleToday());
+    const g = Math.min(can, MEM_REWARD[lv]);
+    let msg = `${eng ? '英文配對' : '圖案配對'}完成！翻了 ${tries} 次、${fmt(Date.now() - t0)}。`;
+    if (tries <= pairs.length + 2) msg += ' 記憶力超強 🧠';
+    if (g > 0) { const res = addEnergy(g, { title: `記憶翻牌 ${eng ? '英文' : '圖案'}配對完成（翻 ${tries} 次）`, source: 'puzzle' }); celebrate(res, '記憶翻牌'); msg += ` 獲得 ${res.gained} 星露！`; }
+    else msg += ' 今天益智能量已滿，可以繼續玩當作放鬆～';
+    box.innerHTML = `<div class="quiz-q">🎉</div><p>${msg}</p><button class="btn" id="qs2">再玩一次</button>`;
+    $('#qs2').onclick = () => runMem(puzzleLv);
+  };
+  draw();
+}
+
+/* ========== 週報、連續天數、徽章 ========== */
+// 有做任務的日子：完成任務、送出給家長、玩益智遊戲都算
+const activeLog = l => (l.kind === 'earn' && (l.taskId || l.source === 'puzzle')) || (l.kind === 'note' && l.taskId);
+const activeDays = () => new Set(db.logs.filter(activeLog).map(l => l.day));
+function dayStreak(set = activeDays()) {
+  let n = 0; // 今天還沒做不算斷
+  for (let i = 0; i < 1000; i++) { if (set.has(addDays(-i))) n++; else if (i > 0) break; }
+  return n;
+}
+function bestStreak(set = activeDays()) {
+  let best = 0, run = 0, prev = '';
+  [...set].sort().forEach(k => { run = prev && shiftDay(prev, 1) === k ? run + 1 : 1; best = Math.max(best, run); prev = k; });
+  return best;
+}
+// 週報以週一為一週的開始；off = 0 本週、-1 上週
+const weekStart = (off = 0) => { const d = new Date(); d.setDate(d.getDate() - (d.getDay() + 6) % 7 + off * 7); return dayKey(d); };
+function weekStats(off) {
+  const act = activeDays();
+  const days = Array.from({ length: 7 }, (_, i) => shiftDay(weekStart(off), i)).map(k => {
+    const ls = db.logs.filter(l => l.day === k), earn = ls.filter(l => l.kind === 'earn');
+    return { k, study: earn.reduce((a, l) => a + (l.minutes || 0), 0), game: ls.filter(l => l.kind === 'redeem').reduce((a, l) => a + (l.minutes || 0), 0),
+      dew: earn.reduce((a, l) => a + Math.max(0, l.energy), 0), act: act.has(k) };
+  });
+  const sum = f => days.reduce((a, d) => a + d[f], 0);
+  return { days, study: sum('study'), game: sum('game'), dew: sum('dew'), act: days.filter(d => d.act).length };
+}
+// 徽章：從紀錄算出來，拿到後記下日期（之後條件變了也不會收回）
+const BADGES = [
+  { id: 'first', ic: '🌱', n: '第一滴星露', d: '第一次完成任務', p: x => [x.tasks, 1] },
+  { id: 'bottle', ic: '🫙', n: '裝滿第一瓶', d: '累積的星露裝滿 1 瓶', p: x => [x.dew, S().energyPerBottle] },
+  { id: 'dew1000', ic: '💎', n: '星露收藏家', d: '累積 1000 星露', p: x => [x.dew, 1000] },
+  { id: 'streak3', ic: '🔥', n: '三天不間斷', d: '連續 3 天做任務', p: x => [x.best, 3] },
+  { id: 'streak7', ic: '🌈', n: '一週全勤', d: '連續 7 天做任務', p: x => [x.best, 7] },
+  { id: 'streak21', ic: '👑', n: '習慣養成', d: '連續 21 天做任務', p: x => [x.best, 21] },
+  { id: 'ontime3', ic: '⏰', n: '說停就停', d: '準時下線連續 3 次', p: x => [x.onTime, 3] },
+  { id: 'ontime7', ic: '🛡️', n: '自律守護者', d: '準時下線連續 7 次', p: x => [x.onTime, 7] },
+  { id: 'focus60', ic: '⏳', n: '專注一小時', d: '專注／練習累積 60 分', p: x => [x.focus, 60] },
+  { id: 'focus600', ic: '🧙', n: '十小時魔法師', d: '專注／練習累積 600 分', p: x => [x.focus, 600] },
+  { id: 'puzzle10', ic: '🧩', n: '益智小天才', d: '完成 10 次益智遊戲', p: x => [x.puzzle, 10] },
+  { id: 'alt', ic: '🎁', n: '生活家', d: '兌換 1 次非 3C 獎勵', p: x => [x.alt, 1] }
+];
+function badgeFacts() {
+  const earn = db.logs.filter(l => l.kind === 'earn');
+  return { tasks: earn.filter(l => l.taskId).length, dew: earn.reduce((a, l) => a + Math.max(0, l.energy), 0), best: bestStreak(),
+    onTime: ST().streakOnTime, focus: earn.reduce((a, l) => a + (l.minutes || 0), 0), puzzle: earn.filter(l => l.source === 'puzzle').length,
+    alt: db.logs.filter(l => l.kind === 'redeem' && !l.minutes).length };
+}
+function checkBadges() {
+  const got = ST().badges, x = badgeFacts();
+  const fresh = BADGES.filter(b => { const [v, t] = b.p(x); return !got[b.id] && v >= t; });
+  fresh.forEach(b => { got[b.id] = Date.now(); log('note', { title: `獲得徽章：${b.ic} ${b.n}`, energy: 0 }); });
+  if (fresh.length) save();
+  return fresh;
+}
+
+/* ========== 露米衣櫥（角色自訂） ========== */
+// 收集徽章解鎖瓶子顏色、配件和稱號；不花星露，不影響遊戲時間的換算
+const LOOK_COLORS = [
+  { id: '', n: '主題原色', need: 0 },
+  { id: 'berry', n: '🍓 莓果', c: ['#ff5c8a', '#ffc2d6'], need: 0 },
+  { id: 'ocean', n: '🌊 海洋', c: ['#2f8bff', '#8fe9ff'], need: 0 },
+  { id: 'forest', n: '🍀 森林', c: ['#22b573', '#b5f5c8'], need: 2 },
+  { id: 'sunset', n: '🍊 夕陽', c: ['#ff7a3d', '#ffd166'], need: 4 },
+  { id: 'nebula', n: '🌌 星雲', c: ['#5b3cff', '#ff5cd6'], need: 6 },
+  { id: 'moon', n: '🌙 月光', c: ['#5d6fa3', '#c9d4f2'], need: 9 }
+];
+const LOOK_ACCS = [
+  { id: '', n: '不戴', need: 0 }, { id: 'bow', n: '🎀 蝴蝶結', need: 0 }, { id: 'phones', n: '🎧 耳機', need: 0 },
+  { id: 'clip', n: '⭐ 星星髮夾', need: 1 }, { id: 'shades', n: '🕶️ 墨鏡', need: 3 }, { id: 'hat', n: '🧙 巫師帽', need: 5 }, { id: 'crown', n: '👑 皇冠', need: 8 }
+];
+// 等級：累積星露每滿 1 瓶升 1 級；稱號分國小／國中兩種說法
+const TITLES = [[1, '星露小芽', '見習星靈師'], [3, '閃亮小幫手', '星露學徒'], [6, '魔法小達人', '星塵術士'], [10, '瓶子守護者', '星空煉金師'], [20, '彩虹魔法師', '銀河賢者'], [35, '傳說大魔法師', '傳說觀星者']];
+const curLook = () => Object.assign({ color: '', acc: '', title: '' }, ST().look);
+const badgeCount = () => Object.keys(ST().badges).filter(k => BADGES.some(b => b.id === k)).length;
+function lumiLevel() {
+  const dew = db.logs.filter(l => l.kind === 'earn').reduce((a, l) => a + Math.max(0, l.energy), 0), per = Math.max(1, S().energyPerBottle);
+  return { lv: 1 + Math.floor(dew / per), dew, per };
+}
+const titleName = t => t[S().theme === 'teen' ? 2 : 1];
+function curTitle() {
+  const lv = lumiLevel().lv, open = TITLES.filter(t => lv >= t[0]), pick = curLook().title;
+  const t = open.find(x => x[0] === pick) || open[open.length - 1]; // 沒選或選的還沒解鎖 → 用目前最高的
+  return titleName(t);
+}
+function lookVars() {
+  const c = LOOK_COLORS.find(x => x.id === curLook().color);
+  return c && c.c ? `--liquid1:${c.c[0]};--liquid2:${c.c[1]}` : '';
+}
+function accSVG(id) {
+  const ink = 'var(--ink)';
+  return ({
+    bow: `<path d="M100 162 L85 153 L85 171 Z M100 162 L115 153 L115 171 Z" fill="#ff6fa8" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="100" cy="162" r="4" fill="#ffb3d1" stroke="${ink}" stroke-width="1.5"/>`,
+    phones: `<path d="M71 186 Q71 150 100 150 Q129 150 129 186" stroke="${ink}" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="63" y="176" width="13" height="20" rx="6" fill="var(--accent2)" stroke="${ink}" stroke-width="1.5"/><rect x="124" y="176" width="13" height="20" rx="6" fill="var(--accent2)" stroke="${ink}" stroke-width="1.5"/>`,
+    clip: `<path d="M121 152 L123.6 158.4 L130 159 L125 163.2 L126.6 170 L121 166.4 L115.4 170 L117 163.2 L112 159 L118.4 158.4 Z" fill="var(--gold)" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/>`,
+    shades: `<rect x="74" y="174" width="23" height="14" rx="6" fill="#1d1d2e"/><rect x="103" y="174" width="23" height="14" rx="6" fill="#1d1d2e"/><path d="M97 179 H103" stroke="#1d1d2e" stroke-width="3"/><path d="M78 178 L84 178" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".7"/><path d="M107 178 L113 178" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".7"/>`,
+    hat: `<path d="M78 166 L103 124 L122 166 Z" fill="var(--accent)" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/><ellipse cx="100" cy="167" rx="28" ry="5" fill="var(--accent)" stroke="${ink}" stroke-width="1.5"/><circle cx="104" cy="146" r="3.5" fill="var(--gold)"/>`,
+    crown: `<path d="M83 168 L83 151 L92 159 L100 146 L108 159 L117 151 L117 168 Z" fill="var(--gold)" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="100" cy="161" r="3" fill="var(--accent2)"/>`
+  })[id] || '';
+}
+function openWardrobe() {
+  modal('<div id="wd"></div>', o => {
+    const draw = () => {
+      const lk = curLook(), have = badgeCount(), L = lumiLevel();
+      const lock = need => have < need ? " disabled" : "";
+      const tag = need => have < need ? ` <small>🔒 ${need} 個徽章</small>` : '';
+      const next = TITLES.find(t => t[0] > L.lv);
+      o.querySelector('#wd').innerHTML = `<h2>🎨 露米衣櫥</h2>
+        <p class="muted">收集徽章就能解鎖新造型，不用花星露。目前有 ${have} 個徽章。</p>
+        <div style="${lookVars()}"><svg class="wprev" viewBox="50 118 100 110" role="img" aria-label="露米造型預覽">
+          <defs><linearGradient id="wlg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--liquid2)"/><stop offset="1" stop-color="var(--liquid1)"/></linearGradient></defs>
+          <circle cx="100" cy="185" r="42" fill="url(#wlg)" stroke="var(--line)" stroke-width="4"/>${lumiFace('happy')}</svg></div>
+        <label class="f">🏷️ 稱號（Lv.${L.lv}${next ? `・再 ${next[0] * L.per - L.per - L.dew} 星露升到 Lv.${next[0]} 解鎖「${titleName(next)}」` : ''}）</label>
+        <div class="wopts">${TITLES.map(t => `<button class="wopt ${curTitle() === titleName(t) ? 'on' : ''}" data-k="title" data-v="${t[0]}" ${L.lv < t[0] ? 'disabled' : ''}>${esc(titleName(t))}${L.lv < t[0] ? ` <small>🔒 Lv.${t[0]}</small>` : ''}</button>`).join('')}</div>
+        <label class="f">🫙 瓶子顏色</label>
+        <div class="wopts">${LOOK_COLORS.map(x => `<button class="wopt ${lk.color === x.id ? 'on' : ''}" data-k="color" data-v="${x.id}"${lock(x.need)}><span class="sw" style="background:${x.c ? `linear-gradient(${x.c[1]}, ${x.c[0]})` : 'linear-gradient(var(--liquid2), var(--liquid1))'}"></span>${x.n}${tag(x.need)}</button>`).join('')}</div>
+        <label class="f">✨ 配件</label>
+        <div class="wopts">${LOOK_ACCS.map(x => `<button class="wopt ${lk.acc === x.id ? 'on' : ''}" data-k="acc" data-v="${x.id}"${lock(x.need)}>${x.n}${tag(x.need)}</button>`).join('')}</div>
+        <div class="row" style="margin-top:14px"><button class="btn" id="wok">完成</button></div>`;
+      o.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+        const lk2 = curLook(); lk2[b.dataset.k] = b.dataset.k === 'title' ? +b.dataset.v : b.dataset.v;
+        ST().look = lk2; save(); sfx('tap'); draw(); if (tab === 'home') render();
+      });
+      o.querySelector('#wok').onclick = () => o.remove();
+    };
+    draw();
+  });
+}
+
+/* ========== 申訴信箱 ========== */
+// 每週（週一起算）可以寫 1 次申訴給家長，用完就沒了；家長回覆「接受」或「維持原規則」，全部留在紀錄裡
+const APPEALS_PER_WEEK = 1;
+const appealsLeft = () => Math.max(0, APPEALS_PER_WEEK - db.appeals.filter(a => a.day >= weekStart()).length);
+function appealCardHTML() {
+  const left = appealsLeft(), recent = db.appeals.slice(0, 5);
+  const st = a => !a.status ? '<span class="pill">⏳ 等家長回覆</span>' : a.status === 'ok' ? '<span class="pill" style="color:var(--mint)">👍 家長接受</span>' : '<span class="pill">🤝 維持原規則</span>';
+  return `<div class="card"><div class="row between"><h2>📮 申訴信箱</h2><span class="pill gold">本週還有 ${left} 次</span></div>
+    <p class="muted">覺得哪裡不公平？可以寫下理由給爸媽。每週 ${APPEALS_PER_WEEK} 次，每週一重新計算，要好好想清楚再寫喔。</p>
+    <button class="btn ${left ? '' : 'ghost'}" id="appeal" ${left ? '' : 'disabled'}>${left ? '✍️ 寫申訴' : '本週的申訴機會用完了'}</button>
+    ${recent.map(a => `<div class="log" style="flex-wrap:wrap"><span class="when">${fmtTime(a.ts)}</span><span style="flex:1;min-width:160px">「${esc(a.text)}」 ${st(a)}${a.reply ? `<br><span class="muted">家長回覆：${esc(a.reply)}</span>` : ''}</span></div>`).join('')}
+  </div>`;
+}
+function writeAppeal() {
+  if (!appealsLeft()) return toast('本週的申訴機會用完了，下週一會再有');
+  modal(`<h2>📮 寫申訴給爸媽</h2><p class="muted">說說發生了什麼事、你希望怎麼處理。送出後就算用掉本週的機會。</p>
+    <textarea id="atx" rows="4" maxlength="300" placeholder="例：今天停電，專注計時被中斷了，希望可以補給我星露"></textarea>
+    <div class="row" style="margin-top:12px"><button class="btn" id="ok">送出申訴</button><button class="btn ghost" id="no">再想想</button></div>`, o => {
+    o.querySelector('#no').onclick = () => o.remove();
+    o.querySelector('#ok').onclick = () => {
+      const text = o.querySelector('#atx').value.trim();
+      if (text.length < 4) return toast('多寫一點理由，爸媽才看得懂喔');
+      if (!appealsLeft()) { o.remove(); return toast('本週的申訴機會用完了'); }
+      db.appeals.unshift({ id: uid(), ts: Date.now(), day: dayKey(), text, status: '', reply: '' });
+      log('note', { title: `📮 送出申訴：「${text}」`, energy: 0 }); save(); o.remove(); sfx('sent'); toast('已送給爸媽，等他們回覆 📮'); render();
+    };
+  });
+}
+// 家長回覆：接受或維持原規則（要補星露請用「手動加分」，會另外留紀錄）
+function answerAppeal(id, ok, reply) {
+  const k = fam.kids.find(x => x.appeals.some(a => a.id === id)); if (!k) return;
+  withKid(k, () => {
+    const a = db.appeals.find(x => x.id === id); if (a.status) return;
+    a.status = ok ? 'ok' : 'no'; a.reply = reply; a.replyTs = Date.now();
+    log('note', { title: `📮 家長回覆申訴：${ok ? '👍 接受' : '🤝 維持原規則'}${reply ? `「${reply}」` : ''}`, energy: 0 }); save();
+  });
+  toast('已回覆'); render();
+}
+// 家長加註更正：紀錄不能改也不能刪，只能在下面加一段說明（同樣不能刪）
+function annotateLog(id) {
+  const l = db.logs.find(x => x.id === id); if (!l) return;
+  modal(`<h2>✏️ 家長加註</h2><p class="muted">原本的紀錄：${fmtTime(l.ts)}「${esc(l.title || '')}」</p>
+    <p class="muted">原紀錄不會被修改。加註會顯示在這筆紀錄下面，孩子看得到，加了就不能刪除。</p>
+    <textarea id="ntx" rows="3" maxlength="200" placeholder="例：那天其實有練琴，是計時器沒存到，已手動補 30 星露"></textarea>
+    <div class="row" style="margin-top:12px"><button class="btn" id="ok">加上註記</button><button class="btn ghost" id="no">取消</button></div>`, o => {
+    o.querySelector('#no').onclick = () => o.remove();
+    o.querySelector('#ok').onclick = () => {
+      const text = o.querySelector('#ntx').value.trim(); if (!text) return toast('請寫下註記內容');
+      (l.notes = l.notes || []).push({ ts: Date.now(), text }); save(); o.remove(); toast('已加註 ✏️'); render();
+    };
+  });
+}
+const logNotesHTML = l => (l.notes || []).map(n => `<br><span class="lognote">✏️ 家長加註（${fmtTime(n.ts)}）：${esc(n.text)}</span>`).join('');
+
 /* ========== logs ========== */
+let weekOff = 0;
 function renderLog() {
   const icon = { earn: '✨', redeem: '🎮', approve: '✅', reject: '↩️', note: '📝' };
-  const week = Array.from({ length: 7 }, (_, i) => addDays(-6 + i));
-  const stat = week.map(k => ({ k, e: db.logs.filter(l => l.day === k && l.kind === 'earn').reduce((a, l) => a + l.energy, 0), m: db.logs.filter(l => l.day === k && l.kind === 'redeem').reduce((a, l) => a + (l.minutes || 0), 0) }));
-  const mx = Math.max(30, ...stat.map(s => Math.max(s.e, s.m)));
+  const w = weekStats(weekOff), prev = weekStats(weekOff - 1);
+  const mx = Math.max(30, ...w.days.map(d => Math.max(d.study, d.game)));
+  const md = k => { const d = new Date(k + 'T00:00'); return `${d.getMonth() + 1}/${d.getDate()}`; };
+  const diff = w.study - prev.study;
+  const total = w.study + w.game;
+  const say = !total ? '這週還沒有專注或遊戲的紀錄。' : w.study >= w.game ? '學習時間比 3C 多，平衡得很好 ✨' : '3C 時間比學習多一點，下週試試多專注一下？';
+  const got = ST().badges, x = badgeFacts();
   $('#view').innerHTML = `
-  <div class="card"><h2>📊 這一週</h2>
-    <div class="row" style="align-items:flex-end;height:140px;gap:6px">${stat.map(s => `<div style="flex:1;text-align:center">
+  <div class="card"><div class="row between"><h2>📊 週報</h2>
+      <div class="row"><button class="btn small ghost" data-wk="-1" aria-label="上一週" ${weekOff <= -12 ? 'disabled' : ''}>◀</button><button class="btn small ghost" data-wk="1" aria-label="下一週" ${weekOff >= 0 ? 'disabled' : ''}>▶</button></div></div>
+    <div class="muted">${md(w.days[0].k)}（一）～ ${md(w.days[6].k)}（日）${weekOff === 0 ? '・本週' : weekOff === -1 ? '・上週' : ''}</div>
+    <div class="stats">
+      <div class="stat"><b style="color:var(--mint)">${w.study}</b>📚 專注／練習（分）</div>
+      <div class="stat"><b style="color:var(--accent2)">${w.game}</b>🎮 3C 遊戲（分）</div>
+      <div class="stat"><b>+${w.dew}</b>✨ 獲得星露</div>
+      <div class="stat"><b>${w.act}/7</b>🔥 有做任務的天數</div>
+    </div>
+    ${total ? `<div class="ratio"><i style="flex:${w.study};background:var(--mint)"></i><i style="flex:${w.game};background:var(--accent2)"></i></div>
+      <div class="muted">學習 ${Math.round(w.study / total * 100)}%　3C ${Math.round(w.game / total * 100)}%</div>` : ''}
+    <p style="margin:8px 0">露米：${say}${diff > 0 ? `<br>專注時間比前一週多 ${diff} 分 👍` : diff < 0 && weekOff < 0 ? `<br>專注時間比前一週少 ${-diff} 分，下週一起加油` : ''}</p>
+    <div class="row" style="align-items:flex-end;height:140px;gap:6px">${w.days.map(d => `<div style="flex:1;text-align:center">
       <div class="row" style="align-items:flex-end;justify-content:center;gap:3px;height:110px">
-        <div title="獲得星露" style="width:40%;height:${s.e / mx * 100}%;background:var(--accent);border-radius:6px 6px 0 0"></div>
-        <div title="遊戲分鐘" style="width:40%;height:${s.m / mx * 100}%;background:var(--accent2);border-radius:6px 6px 0 0"></div></div>
-      <div class="muted" style="font-size:.75em">${WEEK[new Date(s.k + 'T00:00').getDay()]}</div></div>`).join('')}</div>
-    <div class="muted"><span style="color:var(--accent)">■</span> 獲得星露　<span style="color:var(--accent2)">■</span> 遊戲分鐘</div>
+        <div title="專注／練習分鐘" style="width:40%;height:${d.study / mx * 100}%;background:var(--mint);border-radius:6px 6px 0 0"></div>
+        <div title="遊戲分鐘" style="width:40%;height:${d.game / mx * 100}%;background:var(--accent2);border-radius:6px 6px 0 0"></div></div>
+      <div class="muted" style="font-size:.75em;${d.k === dayKey() ? 'font-weight:800;color:var(--accent)' : ''}">${WEEK[new Date(d.k + 'T00:00').getDay()]}${d.act ? '🔥' : ''}</div></div>`).join('')}</div>
+    <div class="muted"><span style="color:var(--mint)">■</span> 專注／練習分鐘　<span style="color:var(--accent2)">■</span> 遊戲分鐘　🔥 有做任務</div>
   </div>
-  <div class="card"><h2>📜 魔法日誌</h2><p class="muted">所有紀錄都不能刪除，口說無憑，紀錄為證。</p>
-    ${db.logs.slice(0, 200).map(l => `<div class="log"><span class="when">${fmtTime(l.ts)}</span><span>${icon[l.kind] || '•'} ${esc(l.title || '')}${l.energy ? ` <b>${l.energy > 0 ? '+' : ''}${l.energy}</b>` : ''}</span></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
+  <div class="card"><div class="row between"><h2>🏅 徽章</h2><span class="pill gold">${Object.keys(got).filter(k => BADGES.some(b => b.id === k)).length} / ${BADGES.length}</span></div>
+    <p class="muted">🔥 現在連續 ${dayStreak()} 天做任務・最長紀錄 ${x.best} 天</p>
+    <div class="badges">${BADGES.map(b => { const [v, t] = b.p(x), on = got[b.id];
+      return `<div class="bdg ${on ? 'on' : 'lock'}"><span class="bi">${b.ic}</span><b>${b.n}</b><small>${b.d}</small><small>${on ? '✔ ' + fmtTime(on).split(' ')[0] + ' 獲得' : `${Math.min(v, t)} / ${t}`}</small></div>`; }).join('')}</div>
+  </div>
+  ${appealCardHTML()}
+  <div class="card"><h2>📜 魔法日誌</h2><p class="muted">所有紀錄都不能刪除，口說無憑，紀錄為證；只有家長能在下面加註更正。附的照片會保留 7 天，點縮圖可以放大。</p>
+    ${db.logs.slice(0, 200).map(l => `<div class="log"><span class="when">${fmtTime(l.ts)}</span>${photoFresh(l) ? `<img class="photo-thumb" data-ph="${l.photo}" alt="照片">` : ''}<span>${icon[l.kind] || '•'} ${esc(l.title || '')}${l.energy ? ` <b>${l.energy > 0 ? '+' : ''}${l.energy}</b>` : ''}${l.chk ? ` <span class="pill">🔍 ${l.chk.ok ? '家長確認有做到' : '家長抽查：這次還沒做到'}</span>` : ''}${logNotesHTML(l)}</span></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
   </div>`;
+  showPhotos($('#view'));
+  const ab = $('#appeal'); if (ab) ab.onclick = writeAppeal;
+  $('#view').querySelectorAll('[data-wk]').forEach(b => b.onclick = () => { weekOff = Math.min(0, Math.max(-12, weekOff + +b.dataset.wk)); render(); });
+}
+
+/* ========== 誠信抽查 ========== */
+// 從最近 3 天的自主回報裡「隨機」抽 3 筆（用紀錄編號排序，重新整理也不會換來換去）
+const spotHash = id => [...String(id)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 99991, 7);
+const spotPicks = k => k.logs.filter(l => l.kind === 'earn' && l.source === 'self' && !l.chk && Date.now() - l.ts < 3 * 864e5)
+  .sort((a, b) => spotHash(a.id) - spotHash(b.id)).slice(0, 3);
+function spotCardHTML() {
+  const many = fam.kids.length > 1;
+  const items = fam.kids.flatMap(k => spotPicks(k).map(l => ({ k, l })));
+  return `<div class="card"><h2>🔍 誠信抽查</h2>
+    <p class="muted">從最近 3 天孩子自己按完成的任務裡隨機抽幾筆，問一問、看一下就好。「👍 有做到」誠信值 +3；「🤔 這次還沒做到」會收回那筆星露、誠信值 -15。誠信值低於 ${TRUST_LOW} 時，自己回報的任務會先送來給家長確認，每核准一次 +5，回到 ${TRUST_LOW} 就恢復。</p>
+    <div class="row wrapflex">${fam.kids.map(k => withKid(k, () => `<span class="pill ${trustLow() ? 'gold' : ''}">${many ? esc(kidLabel(k)) + ' ' : ''}🤝 誠信值 ${trustNow()}${trustLow() ? '（恢復中）' : ''}</span>`)).join('')}</div>
+    ${items.map(({ k, l }) => `<div class="task" style="flex-wrap:wrap"><div class="t" style="min-width:180px"><b>${many ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}${esc(l.title || '')} +${l.energy}</b><span class="muted">${fmtTime(l.ts)}・孩子自己回報</span></div>
+      <button class="btn small mint" data-spkid="${k.id}" data-spok="${l.id}">👍 有做到</button><button class="btn small ghost" data-spkid="${k.id}" data-spno="${l.id}">🤔 這次還沒做到</button></div>`).join('') || '<div class="muted" style="margin-top:8px">這 3 天沒有抽到要確認的自主回報。</div>'}
+  </div>`;
+}
+function spotCheck(kidId, logId, ok) {
+  const k = fam.kids.find(x => x.id === kidId); if (!k) return;
+  withKid(k, () => {
+    const l = db.logs.find(x => x.id === logId); if (!l || l.chk) return;
+    const was = trustLow();
+    l.chk = { ok, ts: Date.now() }; // 只加上抽查結果，原本的紀錄內容不改
+    if (ok) { addTrust(3); log('note', { title: `🔍 家長抽查「${l.title}」：有做到 👍 誠信值 +3`, energy: 0 }); }
+    else {
+      const back = Math.min(Math.max(0, l.energy || 0), ST().energy); ST().energy -= back; addTrust(-15);
+      log('note', { title: `🔍 家長抽查「${l.title}」：這次還沒做到${back ? `，收回 ${back} 星露` : ''}，誠信值 -15`, energy: -back });
+    }
+    if (!was && trustLow()) log('note', { title: `🤝 誠信值低於 ${TRUST_LOW}：自己回報的任務這幾天先請爸媽看一下，核准幾次就會恢復`, energy: 0 });
+    if (was && !trustLow()) log('note', { title: '🤝 誠信值恢復了！自己回報的任務又可以自己按完成', energy: 0 });
+    save();
+  });
+  toast(ok ? '已確認 👍' : '已記錄，下次加油 🤝'); render();
 }
 
 /* ========== parent ========== */
@@ -826,10 +1376,26 @@ function renderParent() {
   const set = S();
   const canEdit = !set.contractSigned || new Date().getDay() === set.ruleChangeDay;
   const pend = fam.kids.flatMap(k => k.pending.map(p => ({ p, k })));
+  const apps = fam.kids.flatMap(k => k.appeals.filter(a => !a.status).map(a => ({ a, k })));
   $('#view').innerHTML = `
   <div class="card"><div class="row between"><h2>👀 待核准（${pend.length}）</h2>${pend.length > 1 ? '<button class="btn small mint" id="appAll">全部核准</button>' : ''}</div>
-    ${pend.map(({ p, k }) => `<div class="task"><div class="t"><b>${fam.kids.length > 1 ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}${esc(p.title)}</b><span class="muted">${fmtTime(p.ts)}・+${p.energy}${p.note ? '・「' + esc(p.note) + '」' : ''}</span></div>
+    ${pend.map(({ p, k }) => `<div class="task">${p.photo ? `<img class="photo-thumb" data-ph="${p.id}" alt="照片">` : ''}<div class="t"><b>${fam.kids.length > 1 ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}${esc(p.title)}</b><span class="muted">${fmtTime(p.ts)}・+${p.energy}${p.note ? '・「' + esc(p.note) + '」' : ''}</span></div>
       <button class="btn small mint" data-ap="${p.id}">核准</button><button class="btn small ghost" data-rj="${p.id}">退回</button></div>`).join('') || `<div class="muted">沒有待核准項目。超過 ${set.autoApproveHours} 小時未處理會自動核准。</div>`}
+  </div>
+
+  ${spotCardHTML()}
+
+  <div class="card"><h2>📮 申訴（${apps.length}）</h2>
+    ${apps.map(({ a, k }) => `<div class="task" style="flex-wrap:wrap"><div class="t" style="min-width:200px"><b>${fam.kids.length > 1 ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}「${esc(a.text)}」</b><span class="muted">${fmtTime(a.ts)}</span>
+      <input data-arp="${a.id}" maxlength="120" placeholder="回覆一句話（可不填）" style="margin-top:6px"></div>
+      <button class="btn small mint" data-aok="${a.id}">👍 接受</button><button class="btn small ghost" data-ano="${a.id}">🤝 維持原規則</button></div>`).join('') || '<div class="muted">沒有待回覆的申訴。孩子每週可以申訴 1 次。</div>'}
+    ${apps.length ? '<p class="muted">接受後如果要補星露，請用下面「其他設定」的手動加分，會另外留紀錄。</p>' : ''}
+  </div>
+
+  <div class="card"><h2>✏️ 日誌加註更正（${esc(kidLabel(db))}）</h2>
+    <p class="muted">紀錄不能修改或刪除。發現記錯了，可以在那筆紀錄下面加一段說明，孩子在「紀錄」頁看得到。</p>
+    ${db.logs.slice(0, 15).map(l => `<div class="task"><div class="t"><b style="font-weight:600">${esc(l.title || '')}${l.energy ? ` ${l.energy > 0 ? '+' : ''}${l.energy}` : ''}</b><span class="muted">${fmtTime(l.ts)}${l.notes && l.notes.length ? `・已加註 ${l.notes.length} 次` : ''}</span></div>
+      <button class="btn small ghost" data-note="${l.id}">加註</button></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
   </div>
 
   <div class="card"><div class="row between"><h2>👨‍👩‍👧‍👦 孩子帳號</h2><button class="btn small" id="addKid">＋ 新增孩子</button></div>
@@ -881,8 +1447,13 @@ function renderParent() {
   <button class="btn ghost" id="lock">🔒 離開家長區</button>`;
 
   const V = $('#view');
+  showPhotos(V);
   V.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => approve(b.dataset.ap, true));
   V.querySelectorAll('[data-rj]').forEach(b => b.onclick = () => approve(b.dataset.rj, false));
+  V.querySelectorAll('[data-aok],[data-ano]').forEach(b => b.onclick = () => { const id = b.dataset.aok || b.dataset.ano, r = V.querySelector(`[data-arp="${id}"]`);
+    answerAppeal(id, !!b.dataset.aok, r ? r.value.trim() : ''); });
+  V.querySelectorAll('[data-note]').forEach(b => b.onclick = () => annotateLog(b.dataset.note));
+  V.querySelectorAll('[data-spok],[data-spno]').forEach(b => b.onclick = () => spotCheck(b.dataset.spkid, b.dataset.spok || b.dataset.spno, !!b.dataset.spok));
   const all = $('#appAll'); if (all) all.onclick = () => { pend.forEach(({ p }) => approve(p.id, true, true)); burst(); toast(`已全部核准 ✨`); render(); };
   $('#addKid').onclick = () => kidForm(null);
   V.querySelectorAll('[data-kedit]').forEach(b => b.onclick = () => kidForm(fam.kids.find(k => k.id === b.dataset.kedit)));
@@ -905,7 +1476,7 @@ function renderParent() {
   // 重新開始：任務、能量、規則回到預設，但紀錄不刪（產品承諾）
   $('#reset').onclick = () => { if (confirm(`確定讓 ${kidLabel(db)} 重新開始？能量、瓶子、任務和規則會回到預設，魔法日誌會保留。`)) {
     const old = db, fresh = newKid(old.settings.kidName, old.settings.grade);
-    fresh.id = old.id; fresh.settings.kidPin = old.settings.kidPin; fresh.logs = old.logs;
+    fresh.id = old.id; fresh.settings.kidPin = old.settings.kidPin; fresh.logs = old.logs; fresh.appeals = old.appeals; fresh.state.badges = old.state.badges; fresh.state.look = old.state.look; fresh.state.trust = old.state.trust;
     fam.kids[fam.kids.indexOf(old)] = fresh; db = fresh; log('note', { title: '家長按了「重新開始」（之前的紀錄都保留）', energy: 0 }); save(); parentUnlocked = false; tab = 'home'; render(); } };
   $('#snd').onclick = () => { set.sound = !set.sound; save(); if (set.sound) sfx('tap'); render(); };
   $('#lock').onclick = () => { parentUnlocked = false; tab = 'home'; render(); };
@@ -1017,8 +1588,13 @@ function approve(id, ok, silent) {
   withKid(k, () => { // 核准的能量加給送出的那個孩子
     const p = db.pending.find(x => x.id === id);
     db.pending = db.pending.filter(x => x.id !== id);
-    if (ok) { addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長核准）', source: 'parent' }); }
-    else { log('reject', { title: `「${p.title}」被退回，請再檢查一次`, energy: 0 }); save(); }
+    const photo = p.photo ? id : undefined; // 照片跟著日誌再留 7 天
+    if (ok && p.trust) { // 誠信值恢復期的確認：每核准一次 +5
+      const was = trustLow(); addTrust(5);
+      addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長確認・誠信值 +5）', source: 'parent' });
+      if (was && !trustLow()) { log('note', { title: '🤝 誠信值恢復了！自己回報的任務又可以自己按完成', energy: 0 }); save(); }
+    } else if (ok) { addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長核准）', source: 'parent', photo }); }
+    else { log('reject', { title: `「${p.title}」被退回，請再檢查一次`, energy: 0, photo }); save(); }
   });
   if (!silent) { ok ? toast('已核准 ✨') : toast('已退回'); render(); }
 }
@@ -1119,6 +1695,7 @@ setInterval(() => {
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 render();
 if (ST().ticket) openTicket();
+photoSweep();
 </script>
 </body>
 </html>
