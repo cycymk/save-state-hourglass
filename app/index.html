@@ -294,12 +294,18 @@ function taskReward(t) {
   const n = todayLogs('earn').filter(l => l.taskId === t.id).length;
   return n >= 2 ? Math.ceil(t.energy / 2) : t.energy; // 同任務第 3 次起減半
 }
+// 誠信值（PLAN 3.2 L3）：家長抽查自主回報的任務；低於 70 時，自主回報先請家長看，核准幾次就恢復
+const TRUST_LOW = 70;
+const trustNow = () => Math.round(+ST().trust >= 0 ? +ST().trust : 100);
+const trustLow = () => trustNow() < TRUST_LOW;
+const addTrust = n => { ST().trust = Math.max(0, Math.min(100, trustNow() + n)); };
+const trustWait = t => db.pending.some(p => p.trust && p.taskId === t.id && p.day === dayKey()); // 恢復期送出、等家長看的
 function redeemBlockers() {
   const s = ST(), set = S(), why = [];
   if (s.ticket) why.push('遊戲券正在使用中');
   if (s.bottles < 1) why.push(`還沒有滿瓶（還差 ${set.energyPerBottle - s.energy} 星露）`);
   if (new Date() >= curfewDate()) why.push(`${set.curfew} 後魔法瓶休息了，明天再來`);
-  const req = db.tasks.filter(t => t.required && !todayLogs('earn').some(l => l.taskId === t.id));
+  const req = db.tasks.filter(t => t.required && !todayLogs('earn').some(l => l.taskId === t.id) && !trustWait(t));
   if (req.length) why.push('先完成必做任務：' + req.map(t => t.icon + t.title).join('、'));
   const left = dailyCap() - usedMinutesToday();
   if (left < set.minutesPerBottle) why.push(`今天的遊戲時間已用完（上限 ${dailyCap()} 分）`);
@@ -575,7 +581,7 @@ function renderHome() {
       <div class="shelf">${Array.from({ length: set.maxBottles }, (_, i) => `<div class="mini ${i < s.bottles ? 'full' : ''}"></div>`).join('')}</div>
       <div class="muted">瓶架 ${s.bottles}/${set.maxBottles}・1 瓶 = ${set.minutesPerBottle} 分鐘遊戲時間</div>
       <div class="muted">今天已用 ${usedMinutesToday()} / ${dailyCap()} 分</div>
-      <div class="muted">🔥 連續 ${dayStreak()} 天做任務・⏰ 準時下線連續 ${s.streakOnTime} 次</div>
+      <div class="muted">🔥 連續 ${dayStreak()} 天做任務・⏰ 準時下線連續 ${s.streakOnTime} 次・🤝 誠信值 ${trustNow()}</div>
       <div style="margin-top:12px"><button class="btn big alt" id="redeem" ${blockers.length ? 'disabled' : ''}>🎮 用 1 瓶換 ${set.minutesPerBottle} 分鐘</button></div>
       ${blockers.length ? `<div class="muted" style="margin-top:8px;text-align:left">${blockers.map(b => '・' + esc(b)).join('<br>')}</div>` : ''}
       <div class="row wrapflex" style="margin-top:10px;justify-content:center"><button class="btn small ghost" id="altReward">🎁 換「非 3C」獎勵</button><button class="btn small ghost" id="wardrobe">🎨 露米衣櫥</button></div>
@@ -584,6 +590,7 @@ function renderHome() {
       <div class="row between"><h2>今日任務</h2><span class="muted">週${WEEK[new Date().getDay()]}・${dayKey()}</span></div>
       ${db.tasks.map(taskRow).join('') || '<div class="muted">還沒有任務，請家長新增</div>'}
       <div class="muted" style="margin-top:6px">🤖 自動驗證　👀 家長核准　🤝 誠信回報・同一任務第 3 次起能量減半</div>
+      ${trustLow() ? `<div class="muted" style="margin-top:6px">🤝 誠信值恢復中（${trustNow()} / ${TRUST_LOW}）：自己回報的任務這幾天先請爸媽看一下，每核准一次 +5，回到 ${TRUST_LOW} 就能自己按完成囉</div>` : ''}
     </div>
   </div>`;
   $('#view').querySelectorAll('[data-do]').forEach(b => b.onclick = () => doTask(b.dataset.do));
@@ -598,8 +605,9 @@ function renderHome() {
 function taskRow(t) {
   const n = doneToday(t.id), pend = db.pending.some(p => p.taskId === t.id && p.day === dayKey());
   const done = oneShot(t) && n > 0;
-  const v = { auto: '🤖', parent: '👀', self: '🤝' }[t.verify];
-  const label = t.type === 'practice' ? '開始練習' : t.type === 'focus' ? '開始專注' : t.verify === 'parent' ? '完成，請家長看' : '我完成了';
+  const ask = t.verify === 'parent' || (t.verify === 'self' && trustLow()); // 誠信值恢復中：自主回報也先請家長看
+  const v = t.verify === 'self' && ask ? '👀' : { auto: '🤖', parent: '👀', self: '🤝' }[t.verify];
+  const label = t.type === 'practice' ? '開始練習' : t.type === 'focus' ? '開始專注' : ask ? '完成，請家長看' : '我完成了';
   return `<div class="task ${done ? 'done' : ''}">
     <div class="ic">${t.icon}</div>
     <div class="t"><b>${esc(t.title)}</b>
@@ -635,6 +643,11 @@ function doTask(id) {
       };
     });
     return;
+  }
+  if (t.verify === 'self' && trustLow()) { // 誠信值恢復中：先送給家長看，不需要照片
+    db.pending.push({ id: uid(), ts: Date.now(), day: dayKey(), taskId: t.id, title: t.title, energy: taskReward(t), note: '誠信值恢復中，請爸媽確認', photo: false, trust: true });
+    log('note', { taskId: t.id, title: `送出「${t.title}」等待家長確認（誠信值恢復中）`, energy: 0 }); save(); sfx('sent');
+    toast('🤝 這次先請爸媽看一下，確認後就會加能量 ✨'); render(); return;
   }
   const res = addEnergy(taskReward(t), { taskId: t.id, title: t.title, source: 'self' });
   celebrate(res, t.title); render();
@@ -1308,11 +1321,44 @@ function renderLog() {
   </div>
   ${appealCardHTML()}
   <div class="card"><h2>📜 魔法日誌</h2><p class="muted">所有紀錄都不能刪除，口說無憑，紀錄為證；只有家長能在下面加註更正。附的照片會保留 7 天，點縮圖可以放大。</p>
-    ${db.logs.slice(0, 200).map(l => `<div class="log"><span class="when">${fmtTime(l.ts)}</span>${photoFresh(l) ? `<img class="photo-thumb" data-ph="${l.photo}" alt="照片">` : ''}<span>${icon[l.kind] || '•'} ${esc(l.title || '')}${l.energy ? ` <b>${l.energy > 0 ? '+' : ''}${l.energy}</b>` : ''}${logNotesHTML(l)}</span></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
+    ${db.logs.slice(0, 200).map(l => `<div class="log"><span class="when">${fmtTime(l.ts)}</span>${photoFresh(l) ? `<img class="photo-thumb" data-ph="${l.photo}" alt="照片">` : ''}<span>${icon[l.kind] || '•'} ${esc(l.title || '')}${l.energy ? ` <b>${l.energy > 0 ? '+' : ''}${l.energy}</b>` : ''}${l.chk ? ` <span class="pill">🔍 ${l.chk.ok ? '家長確認有做到' : '家長抽查：這次還沒做到'}</span>` : ''}${logNotesHTML(l)}</span></div>`).join('') || '<div class="muted">還沒有紀錄</div>'}
   </div>`;
   showPhotos($('#view'));
   const ab = $('#appeal'); if (ab) ab.onclick = writeAppeal;
   $('#view').querySelectorAll('[data-wk]').forEach(b => b.onclick = () => { weekOff = Math.min(0, Math.max(-12, weekOff + +b.dataset.wk)); render(); });
+}
+
+/* ========== 誠信抽查 ========== */
+// 從最近 3 天的自主回報裡「隨機」抽 3 筆（用紀錄編號排序，重新整理也不會換來換去）
+const spotHash = id => [...String(id)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 99991, 7);
+const spotPicks = k => k.logs.filter(l => l.kind === 'earn' && l.source === 'self' && !l.chk && Date.now() - l.ts < 3 * 864e5)
+  .sort((a, b) => spotHash(a.id) - spotHash(b.id)).slice(0, 3);
+function spotCardHTML() {
+  const many = fam.kids.length > 1;
+  const items = fam.kids.flatMap(k => spotPicks(k).map(l => ({ k, l })));
+  return `<div class="card"><h2>🔍 誠信抽查</h2>
+    <p class="muted">從最近 3 天孩子自己按完成的任務裡隨機抽幾筆，問一問、看一下就好。「👍 有做到」誠信值 +3；「🤔 這次還沒做到」會收回那筆星露、誠信值 -15。誠信值低於 ${TRUST_LOW} 時，自己回報的任務會先送來給家長確認，每核准一次 +5，回到 ${TRUST_LOW} 就恢復。</p>
+    <div class="row wrapflex">${fam.kids.map(k => withKid(k, () => `<span class="pill ${trustLow() ? 'gold' : ''}">${many ? esc(kidLabel(k)) + ' ' : ''}🤝 誠信值 ${trustNow()}${trustLow() ? '（恢復中）' : ''}</span>`)).join('')}</div>
+    ${items.map(({ k, l }) => `<div class="task" style="flex-wrap:wrap"><div class="t" style="min-width:180px"><b>${many ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}${esc(l.title || '')} +${l.energy}</b><span class="muted">${fmtTime(l.ts)}・孩子自己回報</span></div>
+      <button class="btn small mint" data-spkid="${k.id}" data-spok="${l.id}">👍 有做到</button><button class="btn small ghost" data-spkid="${k.id}" data-spno="${l.id}">🤔 這次還沒做到</button></div>`).join('') || '<div class="muted" style="margin-top:8px">這 3 天沒有抽到要確認的自主回報。</div>'}
+  </div>`;
+}
+function spotCheck(kidId, logId, ok) {
+  const k = fam.kids.find(x => x.id === kidId); if (!k) return;
+  withKid(k, () => {
+    const l = db.logs.find(x => x.id === logId); if (!l || l.chk) return;
+    const was = trustLow();
+    l.chk = { ok, ts: Date.now() }; // 只加上抽查結果，原本的紀錄內容不改
+    if (ok) { addTrust(3); log('note', { title: `🔍 家長抽查「${l.title}」：有做到 👍 誠信值 +3`, energy: 0 }); }
+    else {
+      const back = Math.min(Math.max(0, l.energy || 0), ST().energy); ST().energy -= back; addTrust(-15);
+      log('note', { title: `🔍 家長抽查「${l.title}」：這次還沒做到${back ? `，收回 ${back} 星露` : ''}，誠信值 -15`, energy: -back });
+    }
+    if (!was && trustLow()) log('note', { title: `🤝 誠信值低於 ${TRUST_LOW}：自己回報的任務這幾天先請爸媽看一下，核准幾次就會恢復`, energy: 0 });
+    if (was && !trustLow()) log('note', { title: '🤝 誠信值恢復了！自己回報的任務又可以自己按完成', energy: 0 });
+    save();
+  });
+  toast(ok ? '已確認 👍' : '已記錄，下次加油 🤝'); render();
 }
 
 /* ========== parent ========== */
@@ -1336,6 +1382,8 @@ function renderParent() {
     ${pend.map(({ p, k }) => `<div class="task">${p.photo ? `<img class="photo-thumb" data-ph="${p.id}" alt="照片">` : ''}<div class="t"><b>${fam.kids.length > 1 ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}${esc(p.title)}</b><span class="muted">${fmtTime(p.ts)}・+${p.energy}${p.note ? '・「' + esc(p.note) + '」' : ''}</span></div>
       <button class="btn small mint" data-ap="${p.id}">核准</button><button class="btn small ghost" data-rj="${p.id}">退回</button></div>`).join('') || `<div class="muted">沒有待核准項目。超過 ${set.autoApproveHours} 小時未處理會自動核准。</div>`}
   </div>
+
+  ${spotCardHTML()}
 
   <div class="card"><h2>📮 申訴（${apps.length}）</h2>
     ${apps.map(({ a, k }) => `<div class="task" style="flex-wrap:wrap"><div class="t" style="min-width:200px"><b>${fam.kids.length > 1 ? `<span class="pill">${esc(kidLabel(k))}</span> ` : ''}「${esc(a.text)}」</b><span class="muted">${fmtTime(a.ts)}</span>
@@ -1405,6 +1453,7 @@ function renderParent() {
   V.querySelectorAll('[data-aok],[data-ano]').forEach(b => b.onclick = () => { const id = b.dataset.aok || b.dataset.ano, r = V.querySelector(`[data-arp="${id}"]`);
     answerAppeal(id, !!b.dataset.aok, r ? r.value.trim() : ''); });
   V.querySelectorAll('[data-note]').forEach(b => b.onclick = () => annotateLog(b.dataset.note));
+  V.querySelectorAll('[data-spok],[data-spno]').forEach(b => b.onclick = () => spotCheck(b.dataset.spkid, b.dataset.spok || b.dataset.spno, !!b.dataset.spok));
   const all = $('#appAll'); if (all) all.onclick = () => { pend.forEach(({ p }) => approve(p.id, true, true)); burst(); toast(`已全部核准 ✨`); render(); };
   $('#addKid').onclick = () => kidForm(null);
   V.querySelectorAll('[data-kedit]').forEach(b => b.onclick = () => kidForm(fam.kids.find(k => k.id === b.dataset.kedit)));
@@ -1427,7 +1476,7 @@ function renderParent() {
   // 重新開始：任務、能量、規則回到預設，但紀錄不刪（產品承諾）
   $('#reset').onclick = () => { if (confirm(`確定讓 ${kidLabel(db)} 重新開始？能量、瓶子、任務和規則會回到預設，魔法日誌會保留。`)) {
     const old = db, fresh = newKid(old.settings.kidName, old.settings.grade);
-    fresh.id = old.id; fresh.settings.kidPin = old.settings.kidPin; fresh.logs = old.logs; fresh.appeals = old.appeals; fresh.state.badges = old.state.badges; fresh.state.look = old.state.look;
+    fresh.id = old.id; fresh.settings.kidPin = old.settings.kidPin; fresh.logs = old.logs; fresh.appeals = old.appeals; fresh.state.badges = old.state.badges; fresh.state.look = old.state.look; fresh.state.trust = old.state.trust;
     fam.kids[fam.kids.indexOf(old)] = fresh; db = fresh; log('note', { title: '家長按了「重新開始」（之前的紀錄都保留）', energy: 0 }); save(); parentUnlocked = false; tab = 'home'; render(); } };
   $('#snd').onclick = () => { set.sound = !set.sound; save(); if (set.sound) sfx('tap'); render(); };
   $('#lock').onclick = () => { parentUnlocked = false; tab = 'home'; render(); };
@@ -1540,7 +1589,11 @@ function approve(id, ok, silent) {
     const p = db.pending.find(x => x.id === id);
     db.pending = db.pending.filter(x => x.id !== id);
     const photo = p.photo ? id : undefined; // 照片跟著日誌再留 7 天
-    if (ok) { addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長核准）', source: 'parent', photo }); }
+    if (ok && p.trust) { // 誠信值恢復期的確認：每核准一次 +5
+      const was = trustLow(); addTrust(5);
+      addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長確認・誠信值 +5）', source: 'parent' });
+      if (was && !trustLow()) { log('note', { title: '🤝 誠信值恢復了！自己回報的任務又可以自己按完成', energy: 0 }); save(); }
+    } else if (ok) { addEnergy(p.energy, { taskId: p.taskId, title: p.title + '（家長核准）', source: 'parent', photo }); }
     else { log('reject', { title: `「${p.title}」被退回，請再檢查一次`, energy: 0, photo }); save(); }
   });
   if (!silent) { ok ? toast('已核准 ✨') : toast('已退回'); render(); }
